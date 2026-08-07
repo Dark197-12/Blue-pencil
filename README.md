@@ -51,10 +51,16 @@ works with the connection string as-is.
 ```bash
 pnpm install
 
-cp .env.example .env         # then fill in DATABASE_URL and SESSION_SECRET
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # SESSION_SECRET
+# Environment lives per app, not at the repo root: the Prisma CLI reads .env
+# from beside its schema, so keeping it there means migrations and the server
+# can never disagree about which database they point at.
+cp apps/api/.env.example apps/api/.env    # DATABASE_URL + SESSION_SECRET
+cp apps/web/.env.example apps/web/.env    # VITE_API_URL
 
-pnpm db:generate             # Prisma client
+# Generate a SESSION_SECRET:
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+createdb bluepencil          # or CREATE DATABASE bluepencil; in psql
 pnpm db:migrate              # create the tables
 pnpm dev                     # api on :3001, web on :5173
 ```
