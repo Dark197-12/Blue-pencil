@@ -1,12 +1,14 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import { ZodError } from "zod";
 
 import { env, isProduction } from "./env.js";
 import { SESSION_COOKIE, validateSession } from "./auth.js";
 import { authRoutes } from "./routes/auth.js";
 import { projectRoutes } from "./routes/projects.js";
+import { manuscriptRoutes } from "./routes/manuscript.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -51,6 +53,10 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(cors, { origin: env.WEB_ORIGIN, credentials: true });
   await app.register(cookie, { secret: env.SESSION_SECRET });
+
+  // A 200k-word manuscript is only ~1 MB of text, but .docx and .epub carry
+  // embedded images. 25 MB is generous for prose and still bounded.
+  await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024, files: 1 } });
 
   // Body-less POSTs (sign out) still carry a Content-Type from many HTTP
   // clients. Without a parser registered for it Fastify answers 415 before the
@@ -101,6 +107,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(authRoutes, { prefix: "/api/auth" });
   await app.register(projectRoutes, { prefix: "/api/projects" });
+  await app.register(manuscriptRoutes, { prefix: "/api/projects" });
 
   return app;
 }

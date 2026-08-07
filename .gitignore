@@ -25,3 +25,6 @@ storage/
 
 # fixtures/ IS committed on purpose: public-domain Gutenberg texts, so
 # `git clone && pnpm test` works with no network and deterministic input.
+
+# editor scratch files
+*.tmp.*

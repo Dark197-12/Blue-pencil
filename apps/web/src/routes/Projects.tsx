@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, RequestError } from "../api";
 import { useAuth } from "../auth";
@@ -68,8 +69,8 @@ export function Projects() {
             {projects.length === 0 ? "Nothing here yet" : `${projects.length} manuscript${projects.length === 1 ? "" : "s"}`}
           </h1>
           <p style={{ margin: 0, color: "var(--muted)", fontSize: 13.5, maxWidth: "62ch" }}>
-            Create a manuscript to hold a draft. Uploading the text itself comes next — for now this is the shell
-            everything else hangs from.
+            Create a manuscript, then upload the draft. Blue Pencil splits it into chapters and
+            scenes, and you confirm the split before anything is measured.
           </p>
         </div>
 
@@ -107,10 +108,24 @@ export function Projects() {
                 }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: "var(--serif)", fontSize: 16.5 }}>{project.title}</div>
+                  <Link
+                    to={`/projects/${project.id}`}
+                    style={{
+                      fontFamily: "var(--serif)",
+                      fontSize: 16.5,
+                      color: "var(--ink)",
+                      textDecoration: "none",
+                    }}
+                  >
+                    {project.title}
+                  </Link>
                   <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 2 }}>
                     {project.wordCount > 0 ? (
-                      <span className="num">{project.wordCount.toLocaleString()} words</span>
+                      <>
+                        <span className="num">{project.wordCount.toLocaleString()} words</span>
+                        {" · "}
+                        <span className="num">{project.chapterCount}</span> chapters
+                      </>
                     ) : (
                       "no text yet"
                     )}

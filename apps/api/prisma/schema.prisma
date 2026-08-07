@@ -50,16 +50,73 @@ model Project {
   title  String
   author String?
 
-  /// Normalised manuscript text. Kept whole so re-parsing never needs the
-  /// original upload; structure tables in Phase 1 index into this by offset.
+  /// Normalised manuscript text, kept whole. Chapters and scenes index into it
+  /// by character offset rather than copying slices, so structure can be
+  /// re-detected or hand-corrected without ever mutating the author's words.
   sourceText String @default("")
   wordCount  Int    @default(0)
+
+  /// Original upload, for provenance and for re-parsing after a parser fix.
+  sourceFormat   String?
+  sourceFilename String?
+
+  /// Set once structure detection has run over sourceText.
+  structureParsedAt DateTime?
+  /// Set when the author has reviewed and accepted the chapter/scene split.
+  structureConfirmedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapters Chapter[]
 
   @@index([userId, updatedAt])
   @@map("projects")
+}
+
+/// A chapter, addressed as a half-open range [startOffset, endOffset) into
+/// Project.sourceText.
+model Chapter {
+  id        String @id @default(cuid())
+  projectId String
+
+  /// Position in the book, 0-based and always contiguous.
+  index Int
+  /// Heading line as it appears in the manuscript.
+  heading String
+  /// Number parsed from the heading, when there was one.
+  ordinal Int?
+
+  startOffset Int
+  endOffset   Int
+  wordCount   Int @default(0)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scenes  Scene[]
+
+  @@unique([projectId, index])
+  @@index([projectId, startOffset])
+  @@map("chapters")
+}
+
+/// A scene within a chapter. Books that use no scene breaks get exactly one
+/// scene per chapter, which is the honest answer rather than an invented split.
+model Scene {
+  id        String @id @default(cuid())
+  chapterId String
+
+  index       Int
+  startOffset Int
+  endOffset   Int
+  wordCount   Int @default(0)
+
+  /// How the preceding break was found: chapter-start, separator, blank-run.
+  breakKind String @default("chapter-start")
+
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([chapterId, index])
+  @@index([chapterId, startOffset])
+  @@map("scenes")
 }

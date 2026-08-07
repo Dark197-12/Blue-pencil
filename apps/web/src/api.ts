@@ -1,4 +1,13 @@
-import type { ApiError, CreateProject, Credentials, Project, User } from "@bp/schema";
+import type {
+  ApiError,
+  Chapter,
+  CreateProject,
+  Credentials,
+  Paragraph,
+  Project,
+  StructureEdit,
+  User,
+} from "@bp/schema";
 
 const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
@@ -21,11 +30,15 @@ export class RequestError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
+    // FormData must set its own Content-Type: the browser appends the multipart
+    // boundary, and overriding it makes the body unparseable on the server.
+    const isFormData = init?.body instanceof FormData;
+
     response = await fetch(`${BASE}${path}`, {
       ...init,
       credentials: "include", // session cookie
       headers: {
-        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(init?.body && !isFormData ? { "Content-Type": "application/json" } : {}),
         ...init?.headers,
       },
     });
@@ -65,5 +78,48 @@ export const api = {
   createProject: (body: CreateProject) =>
     request<{ project: Project }>("/api/projects", { method: "POST", body: JSON.stringify(body) }),
 
+  getProject: (id: string) => request<{ project: Project }>(`/api/projects/${id}`),
+
   deleteProject: (id: string) => request<void>(`/api/projects/${id}`, { method: "DELETE" }),
+
+  // ------------------------------------------------------------ manuscript --
+
+  /** Multipart upload. Content-Type is left unset so the browser adds the boundary. */
+  uploadManuscript: (id: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<{
+      wordCount: number;
+      chapterCount: number;
+      format: string;
+      detected: { title: string | null; author: string | null };
+    }>(`/api/projects/${id}/upload`, { method: "POST", body: form });
+  },
+
+  getStructure: (id: string) =>
+    request<{
+      structureParsedAt: string | null;
+      structureConfirmedAt: string | null;
+      wordCount: number;
+      chapters: Chapter[];
+    }>(`/api/projects/${id}/structure`),
+
+  editStructure: (id: string, edit: StructureEdit) =>
+    request<{ ok: true }>(`/api/projects/${id}/structure`, {
+      method: "PATCH",
+      body: JSON.stringify(edit),
+    }),
+
+  redetectStructure: (id: string) =>
+    request<{ chapterCount: number }>(`/api/projects/${id}/structure/redetect`, { method: "POST" }),
+
+  confirmStructure: (id: string) =>
+    request<{ structureConfirmedAt: string | null }>(`/api/projects/${id}/structure/confirm`, {
+      method: "POST",
+    }),
+
+  getChapter: (projectId: string, chapterId: string) =>
+    request<{ chapter: Chapter; paragraphs: Paragraph[] }>(
+      `/api/projects/${projectId}/chapters/${chapterId}`,
+    ),
 };
