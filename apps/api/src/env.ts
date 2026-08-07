@@ -1,3 +1,7 @@
+// Loads apps/api/.env — the same file the Prisma CLI reads, so the server and
+// migrations can never disagree about which database they are pointed at.
+import "dotenv/config";
+
 import { z } from "zod";
 
 /**

@@ -52,6 +52,19 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(cors, { origin: env.WEB_ORIGIN, credentials: true });
   await app.register(cookie, { secret: env.SESSION_SECRET });
 
+  // Body-less POSTs (sign out) still carry a Content-Type from many HTTP
+  // clients. Without a parser registered for it Fastify answers 415 before the
+  // handler ever runs, so the request silently does nothing. Accept any content
+  // type when the body is empty; reject it only when there is something we
+  // genuinely cannot parse.
+  app.addContentTypeParser("*", { parseAs: "buffer" }, (_request, body: Buffer, done) => {
+    if (body.length === 0) return done(null, undefined);
+    // A non-empty body in a type we don't parse. Fastify handles errors raised
+    // here itself and always answers 400 — it ignores both a thrown HttpError
+    // and a `statusCode` property — so don't bother dressing this up as a 415.
+    done(new Error("Send JSON."), undefined);
+  });
+
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof HttpError) {
       return reply
