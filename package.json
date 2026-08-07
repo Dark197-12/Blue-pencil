@@ -1,0 +1,20 @@
+{
+  "name": "blue-pencil",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.20.0",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build:packages": "pnpm --filter \"./packages/*\" build",
+    "dev": "pnpm build:packages && pnpm --parallel --filter \"./apps/*\" dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:generate": "pnpm --filter @bp/api db:generate",
+    "db:migrate": "pnpm --filter @bp/api db:migrate",
+    "db:studio": "pnpm --filter @bp/api db:studio"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

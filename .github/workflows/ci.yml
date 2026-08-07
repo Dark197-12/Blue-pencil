@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    # Typecheck needs a Prisma client, and `prisma generate` reads DATABASE_URL
+    # even though it never connects. A dummy value is enough; no service needed.
+    env:
+      DATABASE_URL: postgresql://user:pass@localhost:5432/bluepencil
+      SESSION_SECRET: ci-session-secret-that-is-long-enough-to-pass-validation
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Build workspace packages
+        run: pnpm build:packages
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test

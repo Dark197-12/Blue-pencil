@@ -1,0 +1,27 @@
+node_modules/
+dist/
+build/
+.turbo/
+coverage/
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# uploaded manuscripts — never commit someone's novel
+uploads/
+storage/
+
+# fixtures/ IS committed on purpose: public-domain Gutenberg texts, so
+# `git clone && pnpm test` works with no network and deterministic input.

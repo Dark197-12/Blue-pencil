@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm blocks dependency postinstall scripts by default. Prisma needs its own to
+# download query engines and generate the client; esbuild needs its binary.
+allowBuilds:
+  "@prisma/client": true
+  "@prisma/engines": true
+  prisma: true
+  esbuild: true
