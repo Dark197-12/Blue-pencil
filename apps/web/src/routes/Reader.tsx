@@ -1,6 +1,77 @@
+import { Fragment, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { Chapter } from "@bp/schema";
+import type { Chapter, DialogueLine, Paragraph } from "@bp/schema";
 import { api } from "../api";
+
+/**
+ * Marks the quoted spans inside a paragraph, tagging each with its speaker when
+ * one is known. Offsets are absolute into the manuscript, so a span is sliced
+ * relative to the paragraph it falls in.
+ */
+function renderWithSpeakers(paragraph: Paragraph, dialogue: DialogueLine[]): ReactNode {
+  const spans = dialogue
+    .flatMap((line) =>
+      line.segments.map((segment) => ({
+        start: segment.start,
+        end: segment.end,
+        speaker: line.character?.name ?? null,
+        raw: line.speakerRaw,
+        kind: line.speakerKind,
+      })),
+    )
+    .filter((span) => span.start >= paragraph.start && span.start < paragraph.end)
+    .sort((a, b) => a.start - b.start);
+
+  if (spans.length === 0) return paragraph.text;
+
+  // paragraph.text has had its newlines collapsed to spaces, so it stays the
+  // same length as the source slice and offsets still line up.
+  const offset = paragraph.start;
+  const pieces: ReactNode[] = [];
+  let cursor = 0;
+
+  spans.forEach((span, i) => {
+    const from = Math.max(0, span.start - offset);
+    const to = Math.min(paragraph.text.length, span.end - offset);
+    if (from < cursor || to <= from) return;
+
+    if (from > cursor) pieces.push(<Fragment key={`t${i}`}>{paragraph.text.slice(cursor, from)}</Fragment>);
+
+    pieces.push(
+      <span
+        key={`d${i}`}
+        title={span.speaker ?? (span.raw ? `Tagged “${span.raw}” — not yet resolved` : "Speaker unknown")}
+        style={{
+          background: span.speaker ? "var(--accent-sub)" : "transparent",
+          borderBottom: span.speaker ? "none" : "1px dotted var(--rule-2)",
+          borderRadius: 2,
+          padding: span.speaker ? "0 1px" : undefined,
+        }}
+      >
+        {paragraph.text.slice(from, to)}
+        {span.speaker && (
+          <span
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 9.5,
+              letterSpacing: "0.04em",
+              color: "var(--accent)",
+              verticalAlign: "2px",
+              marginLeft: 4,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {span.speaker}
+          </span>
+        )}
+      </span>,
+    );
+    cursor = to;
+  });
+
+  if (cursor < paragraph.text.length) pieces.push(<Fragment key="tail">{paragraph.text.slice(cursor)}</Fragment>);
+  return pieces;
+}
 
 /**
  * The manuscript reader — the surface Phase 6 hangs flags off. It is
@@ -24,7 +95,14 @@ export function Reader({
     enabled: Boolean(selectedChapterId),
   });
 
+  const dialogueQuery = useQuery({
+    queryKey: ["chapter-dialogue", projectId, selectedChapterId],
+    queryFn: () => api.getChapterDialogue(projectId, selectedChapterId),
+    enabled: Boolean(selectedChapterId),
+  });
+
   const paragraphs = data?.paragraphs ?? [];
+  const dialogue = dialogueQuery.data?.lines ?? [];
 
   return (
     <div
@@ -138,7 +216,7 @@ export function Reader({
                           fontSize: paragraph.isEditorialArtifact ? "0.85em" : undefined,
                         }}
                       >
-                        {paragraph.text}
+                        {renderWithSpeakers(paragraph, dialogue)}
                       </p>
                     </div>
                   );

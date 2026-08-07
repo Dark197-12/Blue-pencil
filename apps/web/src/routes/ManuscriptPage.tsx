@@ -6,6 +6,7 @@ import { api } from "../api";
 import { useAuth } from "../auth";
 import { Upload } from "./Upload";
 import { StructureReview } from "./StructureReview";
+import { CastReview } from "./CastReview";
 import { Reader } from "./Reader";
 
 /**
@@ -16,6 +17,8 @@ export function ManuscriptPage() {
   const { id = "" } = useParams();
   const { user, signOut } = useAuth();
   const [selectedChapterId, setSelectedChapterId] = useState<string>("");
+  /** Lets the author reopen the cast screen after confirming it. */
+  const [showCast, setShowCast] = useState(false);
 
   const projectQuery = useQuery({
     queryKey: ["project", id],
@@ -26,6 +29,12 @@ export function ManuscriptPage() {
   const structureQuery = useQuery({
     queryKey: ["structure", id],
     queryFn: () => api.getStructure(id),
+    enabled: Boolean(id),
+  });
+
+  const castQuery = useQuery({
+    queryKey: ["cast", id],
+    queryFn: () => api.getCast(id),
     enabled: Boolean(id),
   });
 
@@ -65,6 +74,9 @@ export function ManuscriptPage() {
 
   const hasManuscript = Boolean(structure?.structureParsedAt);
   const isConfirmed = Boolean(structure?.structureConfirmedAt);
+  // The cast step is done once at least one character has been confirmed.
+  const castConfirmed =
+    !showCast && (castQuery.data?.members.some((m) => m.isConfirmed) ?? false);
 
   return (
     <Shell user={user?.email} onSignOut={signOut}>
@@ -96,13 +108,22 @@ export function ManuscriptPage() {
           wordCount={structure?.wordCount ?? 0}
           onOpenChapter={setSelectedChapterId}
         />
+      ) : !castConfirmed ? (
+        <CastReview projectId={id} />
       ) : (
         <div style={{ display: "grid", gap: 14 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
             <span className="eyebrow">Manuscript</span>
             <span style={{ fontSize: 12, color: "var(--muted)" }}>
-              Structure confirmed. Dialogue attribution comes next.
+              Dialogue with a named speaker is highlighted. Working out the untagged lines comes next.
             </span>
+            <button
+              className="btn"
+              style={{ marginLeft: "auto", padding: "4px 10px", fontSize: 11.5 }}
+              onClick={() => setShowCast(true)}
+            >
+              Edit cast
+            </button>
           </div>
           {selectedChapterId && (
             <Reader

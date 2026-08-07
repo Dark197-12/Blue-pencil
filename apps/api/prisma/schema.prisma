@@ -68,8 +68,10 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chapters Chapter[]
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapters   Chapter[]
+  characters Character[]
+  dialogue   DialogueLine[]
 
   @@index([userId, updatedAt])
   @@map("projects")
@@ -100,6 +102,73 @@ model Chapter {
   @@map("chapters")
 }
 
+/// A speaking character. Proposed from speech tags, then confirmed by the
+/// author — detection suggests, the author decides.
+model Character {
+  id        String @id @default(cuid())
+  projectId String
+
+  /// Display name: the most frequent spelling seen in speech tags.
+  name String
+  /// Every spelling that refers to this character, including `name`.
+  aliases String[]
+
+  /// False until the author has reviewed the proposed cast.
+  isConfirmed Boolean @default(false)
+  /// Set when the author merges this character into another, or deletes it.
+  isArchived Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  attributions DialogueLine[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@map("characters")
+}
+
+/// One utterance. `segments` holds the quoted spans it is made of, because a
+/// speech interrupted by its own tag — "Yes," she said, "of course" — is one
+/// line in two pieces, and splitting it would corrupt sentence-length metrics.
+model DialogueLine {
+  id        String  @id @default(cuid())
+  projectId String
+  sceneId   String?
+
+  /// Range covering the whole utterance, interrupting tag included.
+  startOffset Int
+  endOffset   Int
+  /// [{ start, end }] for each quoted span, in order.
+  segments Json
+
+  /// Spoken words only, quote marks and tags removed.
+  text      String
+  wordCount Int    @default(0)
+
+  /// Speaker exactly as the prose named them: "Elizabeth", "his wife", "she".
+  /// Kept even when unresolvable, because Phase 3 resolves it from context.
+  speakerRaw  String?
+  /// name | pronoun | descriptor
+  speakerKind String?
+
+  characterId String?
+  /// How the speaker was determined: tag | alternation | llm | manual.
+  method String?
+  /// 0–1. Speech tags are near-certain; inference is not.
+  confidence Float?
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scene     Scene?     @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  character Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, startOffset])
+  @@index([projectId, characterId])
+  @@index([sceneId])
+  @@map("dialogue_lines")
+}
+
 /// A scene within a chapter. Books that use no scene breaks get exactly one
 /// scene per chapter, which is the honest answer rather than an invented split.
 model Scene {
@@ -114,7 +183,8 @@ model Scene {
   /// How the preceding break was found: chapter-start, separator, blank-run.
   breakKind String @default("chapter-start")
 
-  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  chapter  Chapter        @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  dialogue DialogueLine[]
 
   @@unique([chapterId, index])
   @@index([chapterId, startOffset])

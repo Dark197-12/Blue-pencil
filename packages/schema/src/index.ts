@@ -103,6 +103,43 @@ export const structureEditSchema = z.discriminatedUnion("op", [
 ]);
 export type StructureEdit = z.infer<typeof structureEditSchema>;
 
+// ---------------------------------------------------------------- cast ----
+
+export const castMemberSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  aliases: z.array(z.string()),
+  isConfirmed: z.boolean(),
+  lineCount: z.number().int().nonnegative(),
+  wordCount: z.number().int().nonnegative(),
+  /** Whether this character has enough dialogue for a stable voice baseline. */
+  hasEnoughForBaseline: z.boolean(),
+});
+export type CastMember = z.infer<typeof castMemberSchema>;
+
+export const castSchema = z.object({
+  totalLines: z.number().int().nonnegative(),
+  attributedLines: z.number().int().nonnegative(),
+  unattributedLines: z.number().int().nonnegative(),
+  members: z.array(castMemberSchema),
+});
+export type Cast = z.infer<typeof castSchema>;
+
+export const dialogueLineSchema = z.object({
+  id: z.string(),
+  startOffset: z.number().int().nonnegative(),
+  endOffset: z.number().int().nonnegative(),
+  segments: z.array(z.object({ start: z.number().int(), end: z.number().int() })),
+  text: z.string(),
+  wordCount: z.number().int().nonnegative(),
+  speakerRaw: z.string().nullable(),
+  speakerKind: z.string().nullable(),
+  method: z.string().nullable(),
+  confidence: z.number().nullable(),
+  character: z.object({ id: z.string(), name: z.string() }).nullable(),
+});
+export type DialogueLine = z.infer<typeof dialogueLineSchema>;
+
 // -------------------------------------------------------------- errors ----
 
 /** Every non-2xx response from the API has this shape. */

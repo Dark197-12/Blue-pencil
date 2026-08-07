@@ -9,6 +9,7 @@ import { SESSION_COOKIE, validateSession } from "./auth.js";
 import { authRoutes } from "./routes/auth.js";
 import { projectRoutes } from "./routes/projects.js";
 import { manuscriptRoutes } from "./routes/manuscript.js";
+import { castRoutes } from "./routes/cast.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -108,6 +109,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(authRoutes, { prefix: "/api/auth" });
   await app.register(projectRoutes, { prefix: "/api/projects" });
   await app.register(manuscriptRoutes, { prefix: "/api/projects" });
+  await app.register(castRoutes, { prefix: "/api/projects" });
 
   return app;
 }

@@ -1,8 +1,10 @@
 import type {
   ApiError,
+  Cast,
   Chapter,
   CreateProject,
   Credentials,
+  DialogueLine,
   Paragraph,
   Project,
   StructureEdit,
@@ -121,5 +123,41 @@ export const api = {
   getChapter: (projectId: string, chapterId: string) =>
     request<{ chapter: Chapter; paragraphs: Paragraph[] }>(
       `/api/projects/${projectId}/chapters/${chapterId}`,
+    ),
+
+  // ------------------------------------------------------------------ cast --
+
+  extractDialogue: (id: string) =>
+    request<{
+      lineCount: number;
+      characterCount: number;
+      attributedCount: number;
+      unresolvedNameTags: number;
+      suggestions: Array<{ names: [string, string]; reason: string }>;
+    }>(`/api/projects/${id}/dialogue/extract`, { method: "POST" }),
+
+  getCast: (id: string) => request<Cast>(`/api/projects/${id}/cast`),
+
+  renameCharacter: (id: string, characterId: string, name: string) =>
+    request<{ character: { id: string; name: string; aliases: string[] } }>(
+      `/api/projects/${id}/cast/${characterId}`,
+      { method: "PATCH", body: JSON.stringify({ name }) },
+    ),
+
+  mergeCharacters: (id: string, fromId: string, intoId: string) =>
+    request<{ ok: true }>(`/api/projects/${id}/cast/merge`, {
+      method: "POST",
+      body: JSON.stringify({ fromId, intoId }),
+    }),
+
+  deleteCharacter: (id: string, characterId: string) =>
+    request<void>(`/api/projects/${id}/cast/${characterId}`, { method: "DELETE" }),
+
+  confirmCast: (id: string) =>
+    request<{ ok: true }>(`/api/projects/${id}/cast/confirm`, { method: "POST" }),
+
+  getChapterDialogue: (projectId: string, chapterId: string) =>
+    request<{ lines: DialogueLine[] }>(
+      `/api/projects/${projectId}/chapters/${chapterId}/dialogue`,
     ),
 };
