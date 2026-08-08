@@ -219,12 +219,11 @@ export function buildProfiles(
  * counted in words and contractions per hundred.
  *
  * The mapping from distance to score decays exponentially rather than
- * linearly. A linear `1 - distance/2` looks reasonable and is not: genuinely
- * distinct characters sit three or four standard deviations apart, so
- * everything past two clamps to zero and the ranking is destroyed — Mr.
- * Collins scored exactly as similar to Darcy as to Mrs. Bennet, which is the
- * one comparison this function exists to get right. Decay keeps every pair
- * ordered no matter how far apart they are.
+ * linearly. A linear `1 - distance/2` clamps to zero beyond two standard
+ * deviations, and genuinely distinct characters sit three or four apart — so
+ * every distinct pair collapses to the same score and the ranking, which is
+ * the point of the function, is lost. Exponential decay keeps all pairs
+ * ordered at any distance.
  */
 export function voiceSimilarity(a: VoiceProfile, b: VoiceProfile): number {
   const shared = COMPARABLE_METRICS.filter(

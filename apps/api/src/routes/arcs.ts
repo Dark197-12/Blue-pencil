@@ -12,15 +12,13 @@ import {
 
 import { prisma } from "../db.js";
 import { HttpError, requireAuth, heavyRoute } from "../app.js";
+import { isReliableMethod } from "./attribution-quality.js";
 
 async function ownedProject(userId: string, projectId: string) {
   const project = await prisma.project.findFirst({ where: { id: projectId, userId } });
   if (!project) throw new HttpError(404, "That manuscript doesn’t exist, or isn’t yours.");
   return project;
 }
-
-/** Attributions certain enough to measure a voice from. */
-const RELIABLE_METHODS = ["tag", "manual"];
 
 /**
  * How each character's voice moves — across the book, and across the people
@@ -70,14 +68,12 @@ export async function arcRoutes(app: FastifyInstance) {
       ]),
     );
 
-    const isReliable = (method: string | null) => method !== null && RELIABLE_METHODS.includes(method);
-
     // ------------------------------------------------------------- arcs --
     // Measured from reliable attributions only: a trend built on guesses is a
     // trend in the guessing.
     const grouped = new Map<string, Map<string, string[]>>();
     for (const line of lines) {
-      if (!line.characterId || !line.sceneId || !isReliable(line.method)) continue;
+      if (!line.characterId || !line.sceneId || !isReliableMethod(line.method)) continue;
       if (!sceneMeta.has(line.sceneId)) continue;
       const perScene = grouped.get(line.characterId) ?? new Map<string, string[]>();
       perScene.set(line.sceneId, [...(perScene.get(line.sceneId) ?? []), line.text]);
@@ -109,7 +105,7 @@ export async function arcRoutes(app: FastifyInstance) {
         characterId: line.characterId,
         text: line.text,
         offset: line.startOffset,
-        isReliable: isReliable(line.method),
+        isReliable: isReliableMethod(line.method),
       }));
 
     const addressed = inferAddressees(contextLines);
@@ -148,7 +144,7 @@ export async function arcRoutes(app: FastifyInstance) {
     return {
       coverage: {
         linesTotal: lines.length,
-        linesMeasurable: lines.filter((l) => l.characterId && isReliable(l.method)).length,
+        linesMeasurable: lines.filter((l) => l.characterId && isReliableMethod(l.method)).length,
         linesAddressed: addressed.length,
         /** Characters with the six scenes an arc needs. */
         arcEligible: [...scenesPerCharacter.values()].filter((n) => n >= 6).length,

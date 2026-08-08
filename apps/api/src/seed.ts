@@ -10,19 +10,16 @@ import { rebuildStructure } from "./ingest/structure.js";
 import { extractProjectDialogue } from "./ingest/dialogue.js";
 
 /**
- * Seeds a worked example, so the app can be looked at without anyone having to
- * find a novel first.
+ * Seeds a fully processed manuscript for development and demonstration.
  *
- * Every screen in Blue Pencil is empty until a manuscript has been uploaded,
- * its chapters confirmed, its cast approved and a few hundred lines attributed.
- * That is a long walk before anything is visible, and a reviewer who stops
- * halfway sees a tool that appears to do nothing.
+ * Every screen is empty until a manuscript has been uploaded, its chapters
+ * confirmed, its cast approved and several hundred lines attributed, so a fresh
+ * database shows nothing of what the tool does.
  *
- * Pride and Prejudice is the fixture because it is public domain, because its
- * cast is famous enough that the measurements can be judged by eye — Mr.
- * Collins really is the most long-winded speaker in the book, and the profile
- * says so — and because it is genuinely hard: crowded rooms, few speech tags,
- * and inset letters that break naive scene detection.
+ * Pride and Prejudice is the fixture: public domain, and a cast well known
+ * enough that the measurements can be sanity-checked by eye. It is also a hard
+ * case — crowded rooms, few speech tags, and inset letters that defeat naive
+ * scene detection.
  *
  *   pnpm --filter @bp/api seed
  */
@@ -65,8 +62,8 @@ async function main() {
   const chapterCount = await rebuildStructure(project.id, text);
   process.stdout.write(`${chapterCount} chapters\n`);
 
-  // The demo starts past the review steps. They are the point of those screens,
-  // but a reviewer wants to see the analysis, and both are one click away.
+  // Marked confirmed so the seeded project opens straight onto the analysis.
+  // The structure and cast review screens remain reachable from the interface.
   await prisma.project.update({
     where: { id: project.id },
     data: { structureConfirmedAt: new Date() },

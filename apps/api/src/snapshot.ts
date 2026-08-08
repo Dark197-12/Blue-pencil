@@ -68,12 +68,9 @@ async function main() {
     `/api/projects/${project.id}/flags?status=open`,
     `/api/projects/${project.id}/flags?status=dismissed`,
     `/api/projects/${project.id}/arcs`,
-    /**
-     * The review queue, at the exact limit the interface asks for. Worth
-     * recording even though the demo cannot accept an answer: the screen is
-     * where most of the attribution work actually happens, and a reviewer
-     * should see it rather than read that it exists.
-     */
+    // The review queue, at the exact page size the interface requests.
+    // Recorded even though a static demo cannot accept an answer, so the screen
+    // itself remains reachable.
     `/api/projects/${project.id}/attribution/queue?filter=unattributed&limit=20`,
     `/api/projects/${project.id}/attribution/queue?filter=uncertain&limit=20`,
     ...chapters.flatMap((chapter) => [

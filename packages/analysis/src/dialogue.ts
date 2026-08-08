@@ -133,14 +133,14 @@ function findQuotedSpans(text: string, style: QuoteStyle): Segment[] {
    * Directional quotes do not nest — they continue.
    *
    * A speech running over several paragraphs opens each one with “ and closes
-   * only at the very end. Pride and Prejudice has 32 more opening marks than
-   * closing ones for exactly this reason. Counting depth treats each
-   * continuation as a nested quote, so the depth never returns to zero and a
-   * single "span" swallows the rest of the book — 646,326 characters, in the
-   * version of this that shipped for about ten minutes.
+   * only at the very end, so a novel carries more opening marks than closing
+   * ones: 32 more in Pride and Prejudice. Tracking nesting depth would treat
+   * each continuation as a nested quote, never return to zero, and yield one
+   * span covering the rest of the book.
    *
-   * So there is no depth: an opening mark while a quote is already open ends
-   * the previous span at the paragraph break and starts a new one.
+   * There is therefore no depth counter. An opening mark encountered while a
+   * quote is already open ends the previous span at the paragraph break and
+   * starts a new one.
    */
   let start = -1;
   for (let i = 0; i < text.length; i++) {

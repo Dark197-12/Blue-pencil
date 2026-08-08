@@ -26,11 +26,10 @@ import { findExchanges, type Anchored, type AlternationResult } from "./alternat
  * disagree about parity is skipped, because somebody spoke twice in a row and
  * carrying parity through would silently hand one character's words to another.
  *
- * What it is worth depends entirely on the book, and by more than expected. On
- * a dialogue-heavy corpus it claims 185 lines; on Pride and Prejudice, 24.
- * Austen writes crowded rooms, and tier 2 has already taken the clean
- * two-handers before this tier sees them. Contemporary fiction, which leans far
- * harder on unbroken two-person scenes, is the case this helps.
+ * Its yield is strongly book-dependent: 185 lines on a dialogue-heavy corpus
+ * against 24 on Pride and Prejudice, where the rooms are crowded and tier 2 has
+ * already taken the clean two-handers. Prose built on sustained two-person
+ * scenes benefits most.
  */
 
 export interface SceneAnchored extends Anchored {
@@ -45,19 +44,15 @@ export interface ClosureOptions {
    * Times each of the two speakers must be named in the scene before the scene
    * is treated as a two-hander.
    *
-   * This guards the tier's characteristic failure. A servant who says one
+   * Guards the characteristic failure of this tier: a servant with a single
    * named line — "Lady Bracknell and Miss Fairfax," announced Lane — makes a
-   * three-person scene look like a two-hander, and the real interlocutor, who
-   * is never named in that scene, gets all their lines handed to the servant.
-   * Every wrong answer in the first measured run had exactly that shape.
-   * Requiring both parties to be named more than once asks for evidence of a
-   * conversation rather than of a presence.
+   * three-person scene look like a two-hander, and the real interlocutor, never
+   * named in that scene, has their lines assigned to the servant. Requiring
+   * both parties to be named more than once demands evidence of a conversation
+   * rather than of a presence.
    *
-   * Measured, it is worth far less than those samples implied: accuracy moves
-   * from 79.0% to 79.2% and two lines of coverage are lost. The guard is kept
-   * because the failure it describes is real and cheap to exclude, but it is
-   * not what holds this tier back, and raising it past 2 changes nothing at
-   * all.
+   * Its measured value is small: accuracy 79.0% to 79.2%, at the cost of two
+   * lines of coverage. Values above 2 change nothing.
    */
   minAnchorsPerSpeaker?: number;
   /**

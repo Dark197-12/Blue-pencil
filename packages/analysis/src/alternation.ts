@@ -48,12 +48,12 @@ export interface AlternationResult {
  * `scripts/eval-attribution.mjs`: 258 correct of 343 on a corpus synthesised
  * from a labelled play at a novel-like tag density.
  *
- * It is a property of the *method*, not of the individual line. An earlier
- * version scored each line separately — higher when it sat close to a named
- * line, lower when the parity had been carried further — and the eval showed
- * that score was not merely useless but inverted: the 0.72 band scored 71%
- * while the 0.68 band scored 80%. Invented precision is worse than none,
- * because everything downstream believes it.
+ * This is a property of the method, not of the individual line. Scoring lines
+ * individually — higher near a named line, lower once parity has been carried
+ * further — measured as inverted rather than merely uninformative: the 0.72
+ * band scored 71% against the 0.68 band's 80%. A confidence figure that does
+ * not track correctness is worse than none, because every consumer treats it
+ * as if it does.
  */
 export const ALTERNATION_ACCURACY = 0.75;
 

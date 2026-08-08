@@ -109,7 +109,7 @@ export function resolveByConstraints(
      *
      * Being *mentioned* nearby is not evidence of being present. The first
      * chapter of Pride and Prejudice discusses Mr. Bingley continuously while
-     * he is nowhere near the house; an earlier version of this counted those
+     * he is nowhere near the house, so counting those as evidence of presence
      * mentions as presence and confidently assigned "My dear Mr. Bennet, have
      * you heard that Netherfield Park is let at last?" — Mrs. Bennet's line,
      * and the most famous opening in English fiction — to Bingley himself.

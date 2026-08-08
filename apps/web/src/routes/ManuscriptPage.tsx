@@ -219,12 +219,8 @@ function Shell({
           <span className="brand-mark">Blue Pencil</span>
         </Link>
         {isDemo ? (
-          /**
-           * Says what this is before anyone clicks something that will refuse.
-           * A reviewer should be able to tell that uploading and editing exist
-           * and are absent for a hosting reason — not that they were never
-           * built.
-           */
+          // States the limitation before an action refuses, and names the
+          // features that are unavailable rather than implying they are absent.
           <span
             style={{
               marginLeft: "auto",

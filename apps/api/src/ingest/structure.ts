@@ -15,17 +15,14 @@ import { prisma } from "../db.js";
 /**
  * Replaces all structure for a project with a freshly detected split.
  *
- * Written as four bulk statements rather than a loop of creates, and the
- * difference is not a micro-optimisation. The loop version issued one round
- * trip per chapter — sixty-one for a novel — inside an interactive transaction,
- * which Prisma gives a five-second budget by default. On a database in the same
- * process as the developer that is imperceptible. On a hosted one an ocean
- * away it is sixty-one times the network latency, and the transaction expired
- * mid-way with "Transaction not found", which reads like a Prisma fault rather
- * than the arithmetic it is. Deployed, every upload would have failed.
+ * Four bulk statements rather than a loop of creates. A create per chapter is
+ * one network round trip per chapter — sixty-one for a novel — inside an
+ * interactive transaction, which Prisma limits to five seconds by default.
+ * That is imperceptible against a local database and exceeds the limit against
+ * a hosted one, failing mid-way with "Transaction not found".
  *
- * Ids are generated here because `createMany` cannot return them and the
- * scenes need to reference their chapter. They are opaque strings; nothing
+ * Ids are generated here because `createMany` does not return them and the
+ * scenes must reference their chapter. They are opaque strings; nothing
  * depends on the format.
  */
 export async function rebuildStructure(projectId: string, sourceText: string) {

@@ -108,12 +108,9 @@ describe("session", () => {
   });
 
   /**
-   * The regression this file exists for.
-   *
-   * Sign-out sends no body, but browsers still attach a Content-Type. With no
-   * parser registered for that combination Fastify answered 415 before the
-   * handler ran, so the session was never deleted and the user stayed signed in
-   * while the interface told them they had left.
+   * Sign-out sends no body, but clients still attach a Content-Type. Without a
+   * parser registered for that combination Fastify answers before the handler
+   * runs, leaving the session in place while the interface reports otherwise.
    */
   it("signs out even when the request carries a content-type and no body", async () => {
     const user = await signUp(app);

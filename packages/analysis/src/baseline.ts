@@ -200,12 +200,12 @@ export function buildBaselines(
       const spread = ownWeight * own + (1 - ownWeight) * shared;
 
       /**
-       * A spread of zero is kept rather than discarded. It means this character
-       * has never once varied on this metric, which is a strong statement about
-       * them, not missing data — dropping it made a perfectly consistent
-       * character impossible to flag however far they later strayed. What to do
-       * about a division by zero is the flagging stage's problem, and it solves
-       * it by falling back to whether the change is audible at all.
+       * A spread of zero is kept rather than discarded. It means the character
+       * has never varied on this metric, which is information about them rather
+       * than missing data; discarding it would make a perfectly consistent
+       * character unflaggable however far they later strayed. Division by zero
+       * is handled at the flagging stage, which falls back to whether the
+       * change is large enough to hear.
        */
       metrics[metric] = { mean: average, spread, ownSpread: own, ownWeight };
     }
@@ -226,12 +226,12 @@ export function buildBaselines(
  * The baseline a single scene should be judged against: the character's other
  * scenes, with this one left out.
  *
- * Including a scene in the distribution it is being tested against hides
- * exactly the deviations worth finding. Seven identical scenes and one wildly
- * different one produce a mean pulled a seventh of the way toward the outlier
- * and a spread inflated by it — enough, in testing, to drop a doubling of
- * sentence length to 2.48 deviations and slip it under a 2.5 threshold. The
- * scene masks itself, and the more extreme it is the better it hides.
+ * Including a scene in the distribution it is tested against conceals the
+ * deviations worth finding. Seven similar scenes and one very different one
+ * give a mean pulled a seventh of the way toward the outlier and a spread
+ * inflated by it: enough to reduce a doubling of sentence length to 2.48
+ * deviations, below the default 2.5 threshold. The effect grows with the size
+ * of the deviation, so the most extreme scenes hide best.
  */
 export function baselineExcludingScene(
   own: ReadonlyArray<SceneMeasurement>,

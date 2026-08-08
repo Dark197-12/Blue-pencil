@@ -49,22 +49,6 @@ const PER_SENTENCE: ReadonlySet<ComparableMetric> = new Set([
   "sentenceLengthVariation",
 ]);
 
-/**
- * Ranks a character's passages by how strongly each shows a given metric.
- *
- * Returns the extremes at both ends, highest first. A passage that cannot be
- * measured on this metric — no sentences, or too few words to be honest about
- * — is left out entirely rather than scored as zero, which would pile silent
- * passages at the bottom of every ranking.
- */
-export function findExamples(
-  passages: ReadonlyArray<string>,
-  metric: ComparableMetric,
-  options: ExampleOptions = {},
-): { high: Example[]; low: Example[] } {
-  return rank(measurePassages(passages, options.minWords ?? 12), metric, options.count ?? 2);
-}
-
 interface MeasuredPassage {
   index: number;
   text: string;
@@ -74,10 +58,10 @@ interface MeasuredPassage {
 /**
  * Measures each passage once.
  *
- * Kept separate because the cost here is tokenisation, and asking for examples
- * of five metrics used to mean tokenising the whole cast's dialogue five times
- * over — 164ms of the voice endpoint's response, nearly all of it repeated
- * work.
+ * The cost of this module is tokenisation, so passages are measured once and
+ * ranked per metric afterwards. Measuring inside the per-metric loop instead
+ * tokenises the whole cast's dialogue once per requested metric, which
+ * accounted for roughly a third of the voice endpoint's response time.
  */
 function measurePassages(
   passages: ReadonlyArray<string>,
@@ -92,8 +76,16 @@ function measurePassages(
   return measured;
 }
 
-/** Examples for several metrics, measuring each passage only once. */
-export function findExamplesFor(
+/**
+ * Ranks a character's passages by how strongly each shows each requested
+ * metric, measuring every passage only once.
+ *
+ * Returns the extremes at both ends, highest first. A passage that cannot be
+ * measured on a metric — no sentences, or too few words to be meaningful — is
+ * omitted rather than scored as zero, which would collect silent passages at
+ * the bottom of every ranking.
+ */
+export function findExamples(
   passages: ReadonlyArray<string>,
   metrics: ReadonlyArray<ComparableMetric>,
   options: ExampleOptions = {},

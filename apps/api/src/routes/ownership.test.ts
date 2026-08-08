@@ -8,12 +8,11 @@ import { as, makeApp, seedManuscript, signUp, type TestUser } from "../test/help
  * Every route that takes a project id must prove the project belongs to the
  * caller before it does anything at all.
  *
- * This is the one class of bug in the API worth real test effort. The check is
- * a single `userId` in a where clause, repeated in seven files, and leaving it
- * out fails silently: the route returns somebody else's manuscript with a 200
- * and nothing anywhere reports a problem. A new route added later is exactly
- * as likely to miss it, which is why this walks the surface rather than a
- * sample.
+ * The check is a single `userId` in a where clause, repeated across seven route
+ * files, and omitting it fails silently: the route returns another user's
+ * manuscript with a 200 and nothing reports a problem. These tests walk the
+ * whole route surface rather than a sample, since a route added later is as
+ * likely to omit it.
  *
  * The expected answer is 404, not 403. Distinguishing "not yours" from "does
  * not exist" would confirm to a stranger that a given project id is real.

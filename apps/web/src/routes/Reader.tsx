@@ -4,13 +4,8 @@ import type { Chapter, DialogueLine, Paragraph } from "@bp/schema";
 import { api, type VoiceFlag } from "../api";
 
 /**
- * Marks the quoted spans inside a paragraph, tagging each with its speaker when
- * one is known. Offsets are absolute into the manuscript, so a span is sliced
- * relative to the paragraph it falls in.
- */
-/**
- * A pencil mark in the margin. Hover reveals what was measured; nothing is
- * shown inline, so the prose is never interrupted by the tool's opinion of it.
+ * A mark in the margin beside a flagged scene. The detail is on hover, so
+ * nothing is added inline to the prose.
  */
 function MarginMark({ flags }: { flags: VoiceFlag[] }) {
   const strong = flags.some((f) => f.severity === "strong");
@@ -32,6 +27,11 @@ function MarginMark({ flags }: { flags: VoiceFlag[] }) {
   );
 }
 
+/**
+ * Marks the quoted spans inside a paragraph, tagging each with its speaker when
+ * one is known. Offsets are absolute into the manuscript, so a span is sliced
+ * relative to the paragraph it falls in.
+ */
 function renderWithSpeakers(paragraph: Paragraph, dialogue: DialogueLine[]): ReactNode {
   const spans = dialogue
     .flatMap((line) =>
@@ -98,13 +98,12 @@ function renderWithSpeakers(paragraph: Paragraph, dialogue: DialogueLine[]): Rea
 }
 
 /**
- * The manuscript reader. It is deliberately a book, not a data view: serif, a
- * comfortable measure, indented paragraphs. If this pane reads like a code
- * editor, writers won't stay in it.
+ * The manuscript reader: serif, a comfortable measure, indented paragraphs.
+ * Presented as a book rather than a data view, since the purpose of the pane is
+ * sustained reading.
  *
- * Flags live in the margin rather than in the text. A pencil mark beside a
- * paragraph can be ignored while reading; an underline or a highlight cannot,
- * and the point of this pane is to let the author read their own book.
+ * Flags are shown in the margin rather than inline. A margin mark can be
+ * ignored while reading; an underline or highlight interrupts the prose.
  */
 export function Reader({
   projectId,

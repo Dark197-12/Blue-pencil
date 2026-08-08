@@ -14,6 +14,7 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "../db.js";
 import { HttpError, requireAuth, heavyRoute } from "../app.js";
+import { RELIABLE_METHODS } from "./attribution-quality.js";
 
 async function ownedProject(userId: string, projectId: string) {
   const project = await prisma.project.findFirst({ where: { id: projectId, userId } });
@@ -45,16 +46,11 @@ const dismissSchema = z.object({
 });
 
 /**
- * Which attributions a flag may be built from.
- *
- * The same rule as the voice profiles, and for a sharper reason. Inference is
- * right about three quarters of the time, and when it is wrong the line
- * usually belongs to the other person in the conversation. A handful of the
- * interlocutor's lines landing in one scene is precisely the pattern this
- * detector is built to notice — so on inferred data it would reliably flag its
- * own mistakes and dress them up as a craft problem.
+ * Flags are built from reliable attributions only. A handful of the
+ * interlocutor's lines landing in one scene is exactly the pattern this
+ * detector looks for, so on inferred data it would flag its own mistakes as
+ * craft problems. See attribution-quality.ts.
  */
-const RELIABLE_METHODS = ["tag", "manual"];
 
 /** Recomputes every flag for a project, preserving what the author dismissed. */
 async function recomputeFlags(projectId: string, threshold: number, ignoredMetrics: string[]) {

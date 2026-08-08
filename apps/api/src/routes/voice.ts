@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
   buildProfiles,
-  findExamplesFor,
+  findExamples,
   voiceSimilarity,
   METRIC_LABELS,
   COMPARABLE_METRICS,
@@ -11,6 +11,7 @@ import {
 
 import { prisma } from "../db.js";
 import { HttpError, requireAuth, heavyRoute } from "../app.js";
+import { RELIABLE_METHODS } from "./attribution-quality.js";
 
 async function ownedProject(userId: string, projectId: string) {
   const project = await prisma.project.findFirst({ where: { id: projectId, userId } });
@@ -19,19 +20,8 @@ async function ownedProject(userId: string, projectId: string) {
 }
 
 /**
- * Which attributions a voice profile is allowed to be built from.
- *
- * The default is deliberate. Measured against known answers, speech tags are
- * right 100% of the time and a person's own decision is right by definition,
- * while alternation is right about 75% and constraint elimination about 78%.
- * Worse, inference goes wrong in a specific direction: a misattributed line
- * almost always belongs to *the other person in the conversation* — exactly
- * the character this profile most needs to be distinguishable from. Feeding it
- * in blurs the very difference the tool exists to measure.
- *
- * `includeInferred` exists because a writer with a lightly-tagged manuscript
- * may prefer a rough profile to none, but it is opt-in and the interface says
- * what it costs.
+ * Building a profile from inferred speakers is opt-in, and the interface says
+ * what it costs. See attribution-quality.ts for why the default excludes them.
  */
 const querySchema = z.object({
   includeInferred: z
@@ -39,8 +29,6 @@ const querySchema = z.object({
     .default("false")
     .transform((v) => v === "true"),
 });
-
-const RELIABLE_METHODS = ["tag", "manual"];
 
 export async function voiceRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
@@ -107,7 +95,7 @@ export async function voiceRoutes(app: FastifyInstance) {
            * most of the book to justify differences nobody would notice, and
            * cost a pass over every passage fifteen times over.
            */
-          examples: findExamplesFor(
+          examples: findExamples(
             speech.get(p.name) ?? [],
             (Object.entries(p.z) as Array<[ComparableMetric, number | undefined]>)
               .filter(([, z]) => typeof z === "number" && Math.abs(z) >= 1)

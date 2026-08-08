@@ -145,13 +145,11 @@ export async function reinferSpeakers(projectId: string, sourceText: string) {
   /**
    * Grouped into one statement per distinct outcome, rather than one per row.
    *
-   * Every changed line gets one of a small set of answers — a character, a
+   * Every changed line receives one of a small set of answers — a character, a
    * method, and that method's accuracy — so a thousand updates collapse into a
-   * few dozen `WHERE id IN (...)`. The row-at-a-time version was a thousand
-   * round trips inside a transaction, which is seconds against a local database
-   * and minutes against a hosted one, at which point it exceeds any timeout
-   * worth setting. The same arithmetic broke structure detection on the first
-   * deployment; this is the same shape.
+   * few dozen `WHERE id IN (...)`. One update per row is one network round trip
+   * per row, which against a hosted database exceeds any workable transaction
+   * timeout.
    */
   const groups = new Map<string, { data: (typeof updates)[number]; ids: string[] }>();
   for (const update of updates) {

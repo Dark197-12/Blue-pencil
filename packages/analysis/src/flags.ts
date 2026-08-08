@@ -10,15 +10,14 @@ import { baselineExcludingScene, type Baseline, type SceneMeasurement } from "./
  * measured in their own units of variability.
  *
  * Practical: the difference must also be large enough to notice on the page.
- * These are not the same test, and a tool that only applies the first is
- * exhausting to use. A character who contracts 0.4 times per hundred words in
- * a scene where they usually manage 0.5 can easily be three standard
- * deviations out, because their spread is tiny — and no reader alive would
- * feel it. Every metric therefore carries a minimum difference below which a
+ * The two are independent. A character who contracts 0.4 times per hundred
+ * words where they usually manage 0.5 can be three standard deviations out
+ * purely because their spread is small, and no reader would register the
+ * change. Each metric therefore carries a minimum difference below which a
  * deviation is arithmetic rather than audible.
  *
- * The whole design leans toward saying nothing. A tool that cries wolf gets
- * switched off, and then it catches nothing at all.
+ * The design is biased toward silence. False positives are more costly than
+ * misses here: they train the author to dismiss flags without reading them.
  */
 
 export type Severity = "notable" | "strong";

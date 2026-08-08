@@ -104,12 +104,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     /**
      * Returns an HttpError rather than a response object.
      *
-     * Whatever this builds is handed to the error handler *as the error*. A
-     * plain `{ error: { message } }` has no `statusCode` and is not an
-     * `Error`, so it fell through every branch below and was reported as a
-     * 500 — the limiter worked, set its Retry-After header, and then told the
-     * client the server had broken. Returning the same type the rest of the
-     * app throws puts it back on the one formatting path.
+     * Whatever this builds is passed to the error handler as the error itself.
+     * A plain `{ error: { message } }` is not an `Error` and carries no
+     * `statusCode`, so it falls through to the catch-all branch and is reported
+     * as a 500 even though the limiter behaved correctly. Returning the type
+     * the rest of the application throws keeps it on the same formatting path.
      */
     errorResponseBuilder: (_request, context) =>
       new HttpError(

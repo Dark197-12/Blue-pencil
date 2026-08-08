@@ -3,17 +3,14 @@ import { snapshotName } from "@bp/schema";
 /**
  * Read-only demo mode.
  *
- * Blue Pencil's read endpoints are pure functions of a stored manuscript, so
- * their answers can be recorded once and served as files. That is what makes a
- * live demo possible with no server and no database behind it — which matters
- * because every free container host this project tried either wanted a card or
- * was shutting down, while static hosting is free everywhere.
+ * The read endpoints are pure functions of a stored manuscript, so their
+ * answers can be recorded once and served as static files. This allows the
+ * interface to be published without a server or a database.
  *
  * The substitution happens at the single point where the app talks to the
- * network. Every screen, query and component above that line is unchanged and
- * cannot tell the difference, which is the only reason this is worth doing:
- * a demo built from a separate cut-down copy of the interface would drift from
- * the real one and quietly stop being evidence of anything.
+ * network, so every screen, query and component above that line is unchanged.
+ * Building a separate cut-down interface instead would let the demo drift from
+ * the application it is meant to represent.
  */
 export const isDemo = import.meta.env.VITE_DEMO === "1";
 
@@ -36,11 +33,9 @@ export async function loadSnapshot<T>(url: string): Promise<T> {
 }
 
 /**
- * What the demo says when something would have written to the database.
- *
- * Deliberately specific about *what* is missing rather than a flat "not
- * available": a reviewer should be able to tell that the feature exists and is
- * absent for a hosting reason, not that it is unfinished.
+ * Shown when an action would have written to the database. Names the affected
+ * features explicitly, so it is clear they exist and are unavailable here
+ * rather than unimplemented.
  */
 export const DEMO_WRITE_MESSAGE =
   "This is a read-only demo — uploading, attributing and dismissing all need the server. Run it locally to try them.";
