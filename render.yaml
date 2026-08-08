@@ -16,9 +16,15 @@ services:
     name: blue-pencil
     runtime: docker
     plan: free
-    # Closest to Neon's eu-central region; a round trip per query across the
-    # Atlantic is very noticeable on the endpoints that make several.
-    region: frankfurt
+    # Must match the Neon project's region — this one is on AWS us-east-2.
+    #
+    # It is the app-to-database hop that matters, not the user-to-app one. A
+    # page load is one round trip from the browser; the endpoints behind it make
+    # dozens against Postgres, and ingesting a manuscript makes hundreds. Put
+    # the service near the user and far from the database and every one of those
+    # pays the ocean crossing. Being near the database and far from the reader
+    # costs a single hop.
+    region: ohio
     dockerfilePath: ./Dockerfile
 
     # Render restarts the service if this stops answering. It touches nothing

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { detectChapters, detectScenes, splitParagraphs } from "@bp/analysis";
 import { prisma } from "../db.js";
 
@@ -10,43 +12,57 @@ import { prisma } from "../db.js";
  * means a later parser fix can rebuild the split without a re-upload.
  */
 
-/** Replaces all structure for a project with a freshly detected split. */
+/**
+ * Replaces all structure for a project with a freshly detected split.
+ *
+ * Written as four bulk statements rather than a loop of creates, and the
+ * difference is not a micro-optimisation. The loop version issued one round
+ * trip per chapter — sixty-one for a novel — inside an interactive transaction,
+ * which Prisma gives a five-second budget by default. On a database in the same
+ * process as the developer that is imperceptible. On a hosted one an ocean
+ * away it is sixty-one times the network latency, and the transaction expired
+ * mid-way with "Transaction not found", which reads like a Prisma fault rather
+ * than the arithmetic it is. Deployed, every upload would have failed.
+ *
+ * Ids are generated here because `createMany` cannot return them and the
+ * scenes need to reference their chapter. They are opaque strings; nothing
+ * depends on the format.
+ */
 export async function rebuildStructure(projectId: string, sourceText: string) {
   const chapters = detectChapters(sourceText);
 
-  await prisma.$transaction(async (tx) => {
+  const chapterRows = chapters.map((chapter) => ({
+    id: randomUUID(),
+    projectId,
+    index: chapter.index,
+    heading: chapter.heading,
+    ordinal: chapter.ordinal,
+    startOffset: chapter.start,
+    endOffset: chapter.end,
+    wordCount: chapter.wordCount,
+  }));
+
+  const sceneRows = chapters.flatMap((chapter, i) =>
+    detectScenes(sourceText, chapter.start, chapter.end).map((scene) => ({
+      chapterId: chapterRows[i]!.id,
+      index: scene.index,
+      startOffset: scene.start,
+      endOffset: scene.end,
+      wordCount: scene.wordCount,
+      breakKind: scene.breakKind,
+    })),
+  );
+
+  await prisma.$transaction([
     // Scenes cascade from chapters.
-    await tx.chapter.deleteMany({ where: { projectId } });
-
-    for (const chapter of chapters) {
-      const scenes = detectScenes(sourceText, chapter.start, chapter.end);
-      await tx.chapter.create({
-        data: {
-          projectId,
-          index: chapter.index,
-          heading: chapter.heading,
-          ordinal: chapter.ordinal,
-          startOffset: chapter.start,
-          endOffset: chapter.end,
-          wordCount: chapter.wordCount,
-          scenes: {
-            create: scenes.map((scene) => ({
-              index: scene.index,
-              startOffset: scene.start,
-              endOffset: scene.end,
-              wordCount: scene.wordCount,
-              breakKind: scene.breakKind,
-            })),
-          },
-        },
-      });
-    }
-
-    await tx.project.update({
+    prisma.chapter.deleteMany({ where: { projectId } }),
+    prisma.chapter.createMany({ data: chapterRows }),
+    prisma.scene.createMany({ data: sceneRows }),
+    prisma.project.update({
       where: { id: projectId },
       data: { structureParsedAt: new Date(), structureConfirmedAt: null },
-    });
-  });
+    }),
+  ]);
 
   return chapters.length;
 }

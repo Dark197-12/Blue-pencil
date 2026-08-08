@@ -142,20 +142,36 @@ export async function reinferSpeakers(projectId: string, sourceText: string) {
     updates.push({ id: row.id, characterId, method, confidence: guess?.confidence ?? null });
   });
 
+  /**
+   * Grouped into one statement per distinct outcome, rather than one per row.
+   *
+   * Every changed line gets one of a small set of answers — a character, a
+   * method, and that method's accuracy — so a thousand updates collapse into a
+   * few dozen `WHERE id IN (...)`. The row-at-a-time version was a thousand
+   * round trips inside a transaction, which is seconds against a local database
+   * and minutes against a hosted one, at which point it exceeds any timeout
+   * worth setting. The same arithmetic broke structure detection on the first
+   * deployment; this is the same shape.
+   */
+  const groups = new Map<string, { data: (typeof updates)[number]; ids: string[] }>();
+  for (const update of updates) {
+    const key = `${update.characterId}|${update.method}|${update.confidence}`;
+    const group = groups.get(key) ?? { data: update, ids: [] };
+    group.ids.push(update.id);
+    groups.set(key, group);
+  }
+
   await prisma.$transaction(
-    async (tx) => {
-      for (const update of updates) {
-        await tx.dialogueLine.update({
-          where: { id: update.id },
-          data: {
-            characterId: update.characterId,
-            method: update.method,
-            confidence: update.confidence,
-          },
-        });
-      }
-    },
-    { timeout: 120_000 },
+    [...groups.values()].map((group) =>
+      prisma.dialogueLine.updateMany({
+        where: { id: { in: group.ids } },
+        data: {
+          characterId: group.data.characterId,
+          method: group.data.method,
+          confidence: group.data.confidence,
+        },
+      }),
+    ),
   );
 
   const byMethod = await prisma.dialogueLine.groupBy({
