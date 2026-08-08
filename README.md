@@ -1,3 +1,13 @@
+---
+title: Blue Pencil
+emoji: ✏️
+colorFrom: blue
+colorTo: gray
+sdk: docker
+app_port: 8080
+pinned: false
+---
+
 # Blue Pencil
 
 Measure how each character in a manuscript speaks, and catch the moments they stop
@@ -233,28 +243,37 @@ database.
 
 ### 2. Service
 
-On [Koyeb](https://koyeb.com): **Create Service → GitHub**, pick this repository
-and the `main` branch, then
+Any host that builds a Dockerfile will do. These instructions use
+[Hugging Face Spaces](https://huggingface.co/spaces), which runs arbitrary
+containers on a free CPU tier without a payment method — Fly, Render and Koyeb
+all turned out to want one, or to be winding the product down.
 
-| Setting | Value |
-| --- | --- |
-| Builder | Dockerfile |
-| Instance | Free |
-| Region | whichever matches your Neon project |
-| Port | `8080` |
-| Health check | HTTP, path `/health` |
+Create a **Docker** Space, then add it as a second git remote and push:
 
-Environment variables:
+```bash
+git remote add space https://huggingface.co/spaces/YOUR-NAME/blue-pencil
+git push space main
+```
+
+The YAML block at the top of this file is what a Space reads: `sdk: docker`, and
+`app_port: 8080` to match the port the server listens on. Everything below it
+becomes the Space's description page.
+
+Two details of the image happen to line up with what Spaces require. The
+container must run as uid 1000, which is what `USER node` gives in
+`node:22-alpine`; and its disk is wiped on every restart, which costs nothing
+here because the only state lives in Postgres.
+
+Set these under **Settings → Variables and secrets**, the two credentials as
+*secrets* and the rest as *variables*:
 
 | Key | Value |
 | --- | --- |
 | `NODE_ENV` | `production` |
 | `PORT` | `8080` |
 | `DATABASE_URL` | the Neon connection string |
-| `SESSION_SECRET` | 64 hex characters (see below) |
-| `WEB_ORIGIN` | the URL the host assigns |
-
-Generate the secret with:
+| `SESSION_SECRET` | 64 hex characters, generated with the command below |
+| `WEB_ORIGIN` | the URL the Space is served from |
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -264,12 +283,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 deployment never consults — but set it correctly anyway, since it is what a
 second origin would be checked against.
 
-Free instances are small and slow: expect the analysis endpoints to take a
-second or two rather than the 100ms they take on a laptop, and expect a cold
-start after a quiet spell. If a large upload kills the process on a 512 MB
-instance, set `NODE_OPTIONS=--max-old-space-size=384` — a whole manuscript is
-held in memory while it is parsed, and Node's default heap ceiling assumes more
-room than a free container has.
+Free instances sleep after a spell of inactivity and take a moment to wake, and
+they are slower than a laptop: expect the analysis endpoints to take a second
+rather than the 100ms they take locally.
 
 ## Test fixtures
 
