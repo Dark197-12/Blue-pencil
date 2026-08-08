@@ -1,4 +1,32 @@
 export {
+  buildProfiles,
+  findSignatureWords,
+  voiceSimilarity,
+  type VoiceProfile,
+  type SignatureWord,
+  type CharacterSpeech,
+  type ProfileOptions,
+} from "./profile.js";
+
+export {
+  computeMetrics,
+  movingAverageTtr,
+  fleschKincaidGrade,
+  COMPARABLE_METRICS,
+  METRIC_LABELS,
+  type Metrics,
+  type ComparableMetric,
+} from "./metrics.js";
+
+export {
+  splitSentences,
+  tokenizeWords,
+  countSyllables,
+  countSyllablesIn,
+  type Sentence,
+} from "./tokenize.js";
+
+export {
   resolveByConstraints,
   namesMentioned,
   type CastInfo,

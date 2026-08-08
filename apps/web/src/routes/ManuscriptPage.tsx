@@ -8,6 +8,7 @@ import { Upload } from "./Upload";
 import { StructureReview } from "./StructureReview";
 import { CastReview } from "./CastReview";
 import { AttributionQueue } from "./AttributionQueue";
+import { VoiceProfiles } from "./VoiceProfiles";
 import { Reader } from "./Reader";
 
 /**
@@ -21,7 +22,7 @@ export function ManuscriptPage() {
   /** Lets the author reopen the cast screen after confirming it. */
   const [showCast, setShowCast] = useState(false);
   /** Which working surface is showing once setup is done. */
-  const [pane, setPane] = useState<"reader" | "queue">("reader");
+  const [pane, setPane] = useState<"reader" | "queue" | "voice">("reader");
 
   const projectQuery = useQuery({
     queryKey: ["project", id],
@@ -122,9 +123,16 @@ export function ManuscriptPage() {
             <button
               className="btn"
               style={{ marginLeft: "auto", padding: "4px 10px", fontSize: 11.5 }}
-              onClick={() => setPane(pane === "reader" ? "queue" : "reader")}
+              onClick={() => setPane(pane === "queue" ? "reader" : "queue")}
             >
-              {pane === "reader" ? "Fix attributions" : "Back to the manuscript"}
+              {pane === "queue" ? "Back to the manuscript" : "Fix attributions"}
+            </button>
+            <button
+              className="btn"
+              style={{ padding: "4px 10px", fontSize: 11.5 }}
+              onClick={() => setPane(pane === "voice" ? "reader" : "voice")}
+            >
+              {pane === "voice" ? "Back to the manuscript" : "Voice profiles"}
             </button>
             <button
               className="btn"
@@ -136,6 +144,8 @@ export function ManuscriptPage() {
           </div>
           {pane === "queue" ? (
             <AttributionQueue projectId={id} />
+          ) : pane === "voice" ? (
+            <VoiceProfiles projectId={id} />
           ) : (
             selectedChapterId && (
             <Reader

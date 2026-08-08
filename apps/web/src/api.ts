@@ -189,6 +189,8 @@ export const api = {
       `/api/projects/${id}/dialogue/${lineId}`,
       { method: "PATCH", body: JSON.stringify({ characterId }) },
     ),
+  getVoiceProfiles: (id: string, includeInferred = false) =>
+    request<VoiceResponse>(`/api/projects/${id}/voice?includeInferred=${includeInferred}`),
 };
 
 export interface QueueItem {
@@ -203,4 +205,26 @@ export interface QueueItem {
   character: { id: string; name: string } | null;
   context: { before: string; after: string };
   candidates: Array<{ id: string; name: string; nearbyCount: number; totalLines: number }>;
+}
+
+export interface SignatureWord {
+  word: string;
+  count: number;
+  rate: number;
+  distinctiveness: number;
+}
+
+export interface VoiceResponse {
+  basis: "all" | "reliable";
+  linesUsed: number;
+  metricLabels: Record<string, string>;
+  metricKeys: string[];
+  profiles: Array<{
+    name: string;
+    isReliable: boolean;
+    metrics: Record<string, number | null>;
+    z: Record<string, number | undefined>;
+    signatureWords: SignatureWord[];
+  }>;
+  similarity: Array<{ name: string; against: Array<{ name: string; score: number }> }>;
 }
