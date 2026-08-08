@@ -52,6 +52,8 @@ ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
 
 ENV NODE_ENV=production
+# A default only. Render, and every other container host, injects its own PORT
+# and the server reads it from the environment.
 ENV PORT=8080
 
 WORKDIR /app

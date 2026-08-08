@@ -11,7 +11,8 @@ dist
 *.tsbuildinfo
 **/*.tsbuildinfo
 
-# Secrets never belong in an image. Fly injects the real values as env vars.
+# Secrets never belong in an image. The host injects the real values as env
+# vars at run time.
 .env
 **/.env
 !**/.env.example
