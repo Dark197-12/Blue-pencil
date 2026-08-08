@@ -131,6 +131,30 @@ function splitLines(text: string): Line[] {
   return lines;
 }
 
+/**
+ * Removes transcription damage from a heading.
+ *
+ * Pride and Prejudice's first heading reads "Chapter I.]" — the bracket is the
+ * tail of an illustration block the transcriber left open, not part of the
+ * title. Only *unmatched* closers are stripped, so a heading that legitimately
+ * contains brackets keeps them.
+ */
+function cleanHeading(raw: string): string {
+  let heading = raw.trim();
+
+  for (const [open, close] of [
+    ["[", "]"],
+    ["(", ")"],
+    ["{", "}"],
+  ] as const) {
+    while (heading.endsWith(close) && heading.split(open).length <= heading.split(close).length - 1) {
+      heading = heading.slice(0, -1).trimEnd();
+    }
+  }
+
+  return heading.replace(/[\s.,;:—–-]+$/, (tail) => (tail.includes(".") ? "." : "")).trim() || raw.trim();
+}
+
 export function findChapterCandidates(text: string): ChapterCandidate[] {
   const lines = splitLines(text);
   const candidates: ChapterCandidate[] = [];
@@ -154,7 +178,7 @@ export function findChapterCandidates(text: string): ChapterCandidate[] {
       if (requiresIsolation && !isolated) continue;
 
       candidates.push({
-        heading: (headingGroup ? match[headingGroup]?.trim() : undefined) || trimmed,
+        heading: cleanHeading((headingGroup ? match[headingGroup]?.trim() : undefined) || trimmed),
         ordinal,
         headingStart: line.start,
         contentStart: Math.min(line.end + 1, text.length),

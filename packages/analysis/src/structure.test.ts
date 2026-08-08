@@ -137,8 +137,20 @@ describe("detectChapters — real manuscripts", () => {
 
   it("handles the inconsistent casing and stray bracket of P&P's first heading", () => {
     const chapters = detectChapters(load("pride-and-prejudice.txt"));
-    expect(chapters[0]!.heading).toMatch(/^Chapter I\./i);
+    // The source reads "Chapter I.]" — the bracket is the tail of an
+    // illustration block the transcriber left open, not part of the title.
+    expect(chapters[0]!.heading).toBe("Chapter I.");
     expect(chapters[1]!.heading).toBe("CHAPTER II.");
+  });
+
+  it("strips only unmatched brackets from a heading", () => {
+    const prose = Array.from({ length: 500 }, (_, i) => `Word${i}`).join(" ");
+    const chapters = detectChapters(
+      `Chapter 1 (The Kitchen)\n\n${prose}\n\nChapter 2 The Garden]\n\n${prose}`,
+    );
+    // A balanced pair belongs to the title; a lone closer is damage.
+    expect(chapters[0]!.heading).toBe("Chapter 1 (The Kitchen)");
+    expect(chapters[1]!.heading).toBe("Chapter 2 The Garden");
   });
 
   it("rejects Huckleberry Finn's table of contents", () => {

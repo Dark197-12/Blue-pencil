@@ -3,6 +3,22 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Chapter } from "@bp/schema";
 import { api, RequestError } from "../api";
 
+/** Trims to a word boundary — "of ascer…" reads as a bug, not an excerpt. */
+function head(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  const cut = text.slice(0, limit);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${cut.slice(0, lastSpace > limit * 0.6 ? lastSpace : limit).trimEnd()}…`;
+}
+
+/** The same, taken from the end, so the excerpt starts on a whole word. */
+function tail(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  const cut = text.slice(-limit);
+  const firstSpace = cut.indexOf(" ");
+  return `…${cut.slice(firstSpace >= 0 && firstSpace < limit * 0.4 ? firstSpace + 1 : 0).trimStart()}`;
+}
+
 /**
  * Shows the opening and closing lines of a chapter.
  *
@@ -29,14 +45,14 @@ function ChapterPreview({ projectId, chapterId }: { projectId: string; chapterId
     );
   }
 
-  const opening = prose.slice(0, 3);
-  const closing = prose.length > 4 ? prose.slice(-1) : [];
+  const opening = prose.slice(0, 2);
+  const closing = prose.length > 3 ? prose.slice(-1) : [];
 
   return (
     <div style={{ fontFamily: "var(--serif)", fontSize: 15, lineHeight: 1.66, color: "var(--ink-2)" }}>
       {opening.map((paragraph) => (
         <p key={paragraph.start} style={{ margin: "0 0 0.7em" }}>
-          {paragraph.text.length > 320 ? `${paragraph.text.slice(0, 320)}…` : paragraph.text}
+          {head(paragraph.text, 300)}
         </p>
       ))}
 
@@ -56,7 +72,7 @@ function ChapterPreview({ projectId, chapterId }: { projectId: string; chapterId
           </div>
           {closing.map((paragraph) => (
             <p key={paragraph.start} style={{ margin: 0 }}>
-              {paragraph.text.length > 320 ? `…${paragraph.text.slice(-320)}` : paragraph.text}
+              {tail(paragraph.text, 300)}
             </p>
           ))}
         </>
