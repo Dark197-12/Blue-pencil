@@ -9,6 +9,7 @@ import { StructureReview } from "./StructureReview";
 import { CastReview } from "./CastReview";
 import { AttributionQueue } from "./AttributionQueue";
 import { VoiceProfiles } from "./VoiceProfiles";
+import { FlagInbox } from "./FlagInbox";
 import { Reader } from "./Reader";
 
 /**
@@ -22,7 +23,7 @@ export function ManuscriptPage() {
   /** Lets the author reopen the cast screen after confirming it. */
   const [showCast, setShowCast] = useState(false);
   /** Which working surface is showing once setup is done. */
-  const [pane, setPane] = useState<"reader" | "queue" | "voice">("reader");
+  const [pane, setPane] = useState<"reader" | "queue" | "voice" | "flags">("reader");
 
   const projectQuery = useQuery({
     queryKey: ["project", id],
@@ -137,6 +138,13 @@ export function ManuscriptPage() {
             <button
               className="btn"
               style={{ padding: "4px 10px", fontSize: 11.5 }}
+              onClick={() => setPane(pane === "flags" ? "reader" : "flags")}
+            >
+              {pane === "flags" ? "Back to the manuscript" : "Consistency"}
+            </button>
+            <button
+              className="btn"
+              style={{ padding: "4px 10px", fontSize: 11.5 }}
               onClick={() => setShowCast(true)}
             >
               Edit cast
@@ -146,6 +154,14 @@ export function ManuscriptPage() {
             <AttributionQueue projectId={id} />
           ) : pane === "voice" ? (
             <VoiceProfiles projectId={id} />
+          ) : pane === "flags" ? (
+            <FlagInbox
+              projectId={id}
+              onOpenScene={(chapterId) => {
+                setSelectedChapterId(chapterId);
+                setPane("reader");
+              }}
+            />
           ) : (
             selectedChapterId && (
             <Reader

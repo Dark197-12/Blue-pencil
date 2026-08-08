@@ -1,4 +1,24 @@
 export {
+  measureScenes,
+  buildBaselines,
+  baselineExcludingScene,
+  type Baseline,
+  type MetricBaseline,
+  type SceneMeasurement,
+  type CharacterScenes,
+  type SceneSpeech,
+  type BaselineOptions,
+} from "./baseline.js";
+
+export {
+  findFlags,
+  type Flag,
+  type FlagEvidence,
+  type FlagOptions,
+  type Severity,
+} from "./flags.js";
+
+export {
   buildProfiles,
   findSignatureWords,
   voiceSimilarity,

@@ -65,6 +65,16 @@ model Project {
   /// Set when the author has reviewed and accepted the chapter/scene split.
   structureConfirmedAt DateTime?
 
+  /// Flag sensitivity, in standard deviations. Lower finds more and is wrong
+  /// more often. 2.5 rather than 2 because fifteen metrics are measured per
+  /// scene, and at 2 the noise alone yields roughly one false flag per scene.
+  flagThreshold Float @default(2.5)
+  /// Metrics the author has switched off — measures that are simply not what
+  /// this book is doing.
+  ignoredMetrics String[] @default([])
+  /// Set once flag detection has run over the current attributions.
+  flagsComputedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -72,6 +82,7 @@ model Project {
   chapters   Chapter[]
   characters Character[]
   dialogue   DialogueLine[]
+  flags      VoiceFlag[]
 
   @@index([userId, updatedAt])
   @@map("projects")
@@ -123,6 +134,7 @@ model Character {
 
   project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   attributions DialogueLine[]
+  flags        VoiceFlag[]
 
   @@unique([projectId, name])
   @@index([projectId])
@@ -185,8 +197,59 @@ model Scene {
 
   chapter  Chapter        @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   dialogue DialogueLine[]
+  flags    VoiceFlag[]
 
   @@unique([chapterId, index])
   @@index([chapterId, startOffset])
   @@map("scenes")
+}
+
+/// One character sounding unlike themselves in one scene.
+///
+/// The measurements here are derived and are rewritten wholesale every time
+/// detection runs — attributions change, and a flag computed from stale ones
+/// would be a lie. What is *not* derived is `dismissedAt`: the author saying
+/// "this is deliberate" is a judgement the machine has no business discarding,
+/// so recomputation upserts on (character, scene) and leaves it standing.
+///
+/// Dismissal is per scene rather than per metric because that is the shape of
+/// the author's actual thought — "she is drunk in this scene" excuses every
+/// measure at once, not the sentence length alone.
+model VoiceFlag {
+  id          String @id @default(cuid())
+  projectId   String
+  characterId String
+  sceneId     String
+
+  /// notable | strong
+  severity String
+  /// Largest deviation in the scene, used for ordering.
+  peakZ Float
+  /// [{ metric, label, baseline, observed, z, direction }] — the whole case,
+  /// stored so the interface never has to recompute to explain itself.
+  evidence Json
+  /// Plain-language summary written for the author.
+  summary String
+
+  /// How much speech each side of the comparison rests on. Shown always: a
+  /// flag from 60 words against 4 scenes deserves less trust than one from 400
+  /// against 20, and only the author can weigh that.
+  sceneWordCount     Int
+  baselineWordCount  Int
+  baselineSceneCount Int
+
+  /// Set when the author marks the difference as intentional.
+  dismissedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  scene     Scene     @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@unique([characterId, sceneId])
+  @@index([projectId, peakZ])
+  @@index([sceneId])
+  @@map("voice_flags")
 }

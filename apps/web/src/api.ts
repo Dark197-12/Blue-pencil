@@ -191,6 +191,29 @@ export const api = {
     ),
   getVoiceProfiles: (id: string, includeInferred = false) =>
     request<VoiceResponse>(`/api/projects/${id}/voice?includeInferred=${includeInferred}`),
+
+  // ----------------------------------------------------------------- flags --
+
+  getFlags: (id: string, status: "open" | "dismissed" | "all" = "open") =>
+    request<FlagsResponse>(`/api/projects/${id}/flags?status=${status}`),
+
+  recomputeFlags: (id: string) =>
+    request<{ flagCount: number }>(`/api/projects/${id}/flags/recompute`, { method: "POST" }),
+
+  dismissFlag: (id: string, flagId: string, dismissed: boolean) =>
+    request<{ flag: { id: string; dismissedAt: string | null } }>(
+      `/api/projects/${id}/flags/${flagId}`,
+      { method: "PATCH", body: JSON.stringify({ dismissed }) },
+    ),
+
+  updateFlagSettings: (
+    id: string,
+    settings: { flagThreshold?: number; ignoredMetrics?: string[] },
+  ) =>
+    request<{
+      settings: { flagThreshold: number; ignoredMetrics: string[] };
+      flagCount: number;
+    }>(`/api/projects/${id}/flags/settings`, { method: "PATCH", body: JSON.stringify(settings) }),
 };
 
 export interface QueueItem {
@@ -227,4 +250,44 @@ export interface VoiceResponse {
     signatureWords: SignatureWord[];
   }>;
   similarity: Array<{ name: string; against: Array<{ name: string; score: number }> }>;
+}
+
+export interface FlagEvidence {
+  metric: string;
+  label: string;
+  /** What the character usually does, across their other scenes. */
+  baseline: number;
+  observed: number;
+  z: number;
+  direction: "higher" | "lower";
+}
+
+export interface VoiceFlag {
+  id: string;
+  severity: "notable" | "strong";
+  peakZ: number;
+  summary: string;
+  evidence: FlagEvidence[];
+  /** How much speech each side of the comparison rests on. */
+  sceneWordCount: number;
+  baselineWordCount: number;
+  baselineSceneCount: number;
+  dismissedAt: string | null;
+  character: { id: string; name: string };
+  scene: {
+    id: string;
+    index: number;
+    startOffset: number;
+    endOffset: number;
+    chapter: { id: string; index: number; heading: string };
+  };
+}
+
+export interface FlagsResponse {
+  computedAt: string | null;
+  settings: { flagThreshold: number; ignoredMetrics: string[] };
+  metricLabels: Record<string, string>;
+  metricKeys: string[];
+  dismissedCount: number;
+  flags: VoiceFlag[];
 }

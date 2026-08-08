@@ -1,13 +1,37 @@
 import { Fragment, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Chapter, DialogueLine, Paragraph } from "@bp/schema";
-import { api } from "../api";
+import { api, type VoiceFlag } from "../api";
 
 /**
  * Marks the quoted spans inside a paragraph, tagging each with its speaker when
  * one is known. Offsets are absolute into the manuscript, so a span is sliced
  * relative to the paragraph it falls in.
  */
+/**
+ * A pencil mark in the margin. Hover reveals what was measured; nothing is
+ * shown inline, so the prose is never interrupted by the tool's opinion of it.
+ */
+function MarginMark({ flags }: { flags: VoiceFlag[] }) {
+  const strong = flags.some((f) => f.severity === "strong");
+
+  return (
+    <span
+      title={flags.map((f) => `${f.summary} (${f.evidence[0]?.label ?? ""})`).join("\n")}
+      style={{
+        position: "absolute",
+        left: -22,
+        top: "0.42em",
+        width: 3,
+        height: "1.1em",
+        borderRadius: 2,
+        background: strong ? "var(--pole-hi)" : "var(--rule-2)",
+        cursor: "help",
+      }}
+    />
+  );
+}
+
 function renderWithSpeakers(paragraph: Paragraph, dialogue: DialogueLine[]): ReactNode {
   const spans = dialogue
     .flatMap((line) =>
@@ -74,9 +98,13 @@ function renderWithSpeakers(paragraph: Paragraph, dialogue: DialogueLine[]): Rea
 }
 
 /**
- * The manuscript reader — the surface Phase 6 hangs flags off. It is
- * deliberately a book, not a data view: serif, a comfortable measure, indented
- * paragraphs. If this pane reads like a code editor, writers won't stay in it.
+ * The manuscript reader. It is deliberately a book, not a data view: serif, a
+ * comfortable measure, indented paragraphs. If this pane reads like a code
+ * editor, writers won't stay in it.
+ *
+ * Flags live in the margin rather than in the text. A pencil mark beside a
+ * paragraph can be ignored while reading; an underline or a highlight cannot,
+ * and the point of this pane is to let the author read their own book.
  */
 export function Reader({
   projectId,
@@ -101,8 +129,21 @@ export function Reader({
     enabled: Boolean(selectedChapterId),
   });
 
+  const flagsQuery = useQuery({
+    queryKey: ["flags", projectId, "open"],
+    queryFn: () => api.getFlags(projectId, "open"),
+  });
+
   const paragraphs = data?.paragraphs ?? [];
   const dialogue = dialogueQuery.data?.lines ?? [];
+
+  // Flags in this chapter, keyed by the scene they fall in. A scene can carry
+  // more than one — two characters can both slip in the same room.
+  const flagsByScene = new Map<number, VoiceFlag[]>();
+  for (const flag of flagsQuery.data?.flags ?? []) {
+    if (flag.scene.chapter.id !== selectedChapterId) continue;
+    flagsByScene.set(flag.scene.index, [...(flagsByScene.get(flag.scene.index) ?? []), flag]);
+  }
 
   return (
     <div
@@ -188,9 +229,16 @@ export function Reader({
                 {paragraphs.map((paragraph, i) => {
                   const previous = paragraphs[i - 1];
                   const startsScene = previous !== undefined && paragraph.sceneIndex !== previous.sceneIndex;
+                  // The mark goes beside the opening paragraph of the scene it
+                  // describes, which for the first paragraph means i === 0.
+                  const sceneFlags =
+                    startsScene || i === 0 ? flagsByScene.get(paragraph.sceneIndex) : undefined;
 
                   return (
-                    <div key={paragraph.start}>
+                    <div key={paragraph.start} style={{ position: "relative" }}>
+                      {sceneFlags && sceneFlags.length > 0 && (
+                        <MarginMark flags={sceneFlags} />
+                      )}
                       {startsScene && (
                         <div
                           aria-label="Scene break"
