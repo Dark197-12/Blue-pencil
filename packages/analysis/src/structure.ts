@@ -361,6 +361,84 @@ export function detectScenes(
   return scenes;
 }
 
+export interface Region {
+  start: number;
+  end: number;
+}
+
+/**
+ * Bracketed editorial blocks that transcribers add and authors never wrote —
+ * `[Illustration: … ]` and copyright notices.
+ *
+ * These matter more than they look. A Gutenberg illustration block contains a
+ * *caption*, and the caption is usually a line of dialogue quoted from the
+ * surrounding chapter. Pride and Prejudice has 162 such blocks holding 62
+ * quoted lines, 41 of which duplicate a real line elsewhere in the book. Left
+ * in, they inflate the dialogue count and double-count those words in every
+ * per-character measurement built on it.
+ *
+ * A block can span several paragraphs, so it is matched by bracket balance
+ * rather than by line, with a length cap so one unclosed bracket cannot swallow
+ * the rest of the manuscript.
+ */
+const EDITORIAL_OPENER = /\[\s*(?:illustration|frontispiece|_?copyright)/gi;
+const MAX_EDITORIAL_REGION = 2000;
+
+export function findEditorialRegions(text: string): Region[] {
+  const regions: Region[] = [];
+  const opener = new RegExp(EDITORIAL_OPENER.source, "gi");
+  let match: RegExpExecArray | null;
+
+  while ((match = opener.exec(text)) !== null) {
+    const start = match.index;
+    const limit = Math.min(text.length, start + MAX_EDITORIAL_REGION);
+
+    let depth = 0;
+    let balancedEnd = -1;
+    for (let i = start; i < limit; i++) {
+      const char = text[i];
+      if (char === "[") depth++;
+      else if (char === "]") {
+        depth--;
+        if (depth === 0) {
+          balancedEnd = i + 1;
+          break;
+        }
+      }
+    }
+
+    // Brackets that never balance mean a malformed block, not a licence to
+    // suppress the next two thousand characters of the author's prose. Fall
+    // back to the opening paragraph alone.
+    let end: number;
+    if (balancedEnd !== -1) {
+      end = balancedEnd;
+    } else {
+      const paragraphEnd = text.indexOf("\n\n", start);
+      end = paragraphEnd === -1 ? Math.min(text.length, limit) : paragraphEnd;
+    }
+
+    regions.push({ start, end });
+    opener.lastIndex = Math.max(end, start + 1);
+  }
+
+  return regions;
+}
+
+/** True when an offset falls inside any of the (sorted, non-overlapping) regions. */
+export function isInRegion(offset: number, regions: ReadonlyArray<Region>): boolean {
+  let low = 0;
+  let high = regions.length - 1;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    const region = regions[mid]!;
+    if (offset < region.start) high = mid - 1;
+    else if (offset >= region.end) low = mid + 1;
+    else return true;
+  }
+  return false;
+}
+
 export interface Paragraph {
   start: number;
   end: number;
@@ -369,11 +447,13 @@ export interface Paragraph {
   isEditorialArtifact: boolean;
 }
 
-const EDITORIAL = /^\s*\[?(?:illustration|copyright|frontispiece|_?copyright)\b/i;
-
 export function splitParagraphs(text: string, start = 0, end = text.length): Paragraph[] {
   const body = text.slice(start, end);
   const paragraphs: Paragraph[] = [];
+
+  // Computed over the whole text, so a block that opens before this slice still
+  // marks the paragraphs of it that fall inside.
+  const regions = findEditorialRegions(text);
 
   const re = /[^\n]+(?:\n[^\n]+)*/g;
   let match: RegExpExecArray | null;
@@ -382,11 +462,12 @@ export function splitParagraphs(text: string, start = 0, end = text.length): Par
     const trimmed = raw.trim();
     if (!trimmed) continue;
 
+    const offset = start + match.index;
     paragraphs.push({
-      start: start + match.index,
-      end: start + match.index + raw.length,
+      start: offset,
+      end: offset + raw.length,
       text: trimmed.replace(/\n/g, " "),
-      isEditorialArtifact: EDITORIAL.test(trimmed) || /^\[.*\]$/.test(trimmed),
+      isEditorialArtifact: isInRegion(offset, regions) || /^\[.*\]$/.test(trimmed),
     });
   }
 

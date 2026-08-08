@@ -1,7 +1,73 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Chapter } from "@bp/schema";
 import { api, RequestError } from "../api";
+
+/**
+ * Shows the opening and closing lines of a chapter.
+ *
+ * Boundary mistakes surface at the edges — a heading swallowed into the chapter
+ * above, or front matter clinging to chapter one — so the two ends are what you
+ * need to see. The middle is never in question.
+ */
+function ChapterPreview({ projectId, chapterId }: { projectId: string; chapterId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["chapter", projectId, chapterId],
+    queryFn: () => api.getChapter(projectId, chapterId),
+  });
+
+  if (isLoading) {
+    return <p style={{ margin: 0, fontSize: 12.5, color: "var(--muted)" }}>Loading…</p>;
+  }
+
+  const prose = (data?.paragraphs ?? []).filter((p) => !p.isEditorialArtifact);
+  if (prose.length === 0) {
+    return (
+      <p style={{ margin: 0, fontSize: 12.5, color: "var(--warn)" }}>
+        This chapter has no prose in it — it is probably a heading that should be merged upward.
+      </p>
+    );
+  }
+
+  const opening = prose.slice(0, 3);
+  const closing = prose.length > 4 ? prose.slice(-1) : [];
+
+  return (
+    <div style={{ fontFamily: "var(--serif)", fontSize: 15, lineHeight: 1.66, color: "var(--ink-2)" }}>
+      {opening.map((paragraph) => (
+        <p key={paragraph.start} style={{ margin: "0 0 0.7em" }}>
+          {paragraph.text.length > 320 ? `${paragraph.text.slice(0, 320)}…` : paragraph.text}
+        </p>
+      ))}
+
+      {closing.length > 0 && (
+        <>
+          <div
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 10.5,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--muted)",
+              margin: "14px 0 8px",
+            }}
+          >
+            ends
+          </div>
+          {closing.map((paragraph) => (
+            <p key={paragraph.start} style={{ margin: 0 }}>
+              {paragraph.text.length > 320 ? `…${paragraph.text.slice(-320)}` : paragraph.text}
+            </p>
+          ))}
+        </>
+      )}
+
+      <div style={{ fontFamily: "var(--sans)", fontSize: 11.5, color: "var(--muted)", marginTop: 12 }}>
+        {prose.length} paragraph{prose.length === 1 ? "" : "s"}
+      </div>
+    </div>
+  );
+}
 
 /**
  * The structure-confirmation step. Detection is good but never perfect, and
@@ -12,17 +78,17 @@ export function StructureReview({
   projectId,
   chapters,
   wordCount,
-  onOpenChapter,
 }: {
   projectId: string;
   chapters: Chapter[];
   wordCount: number;
-  onOpenChapter: (chapterId: string) => void;
 }) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draftHeading, setDraftHeading] = useState("");
+  /** Which chapter is open for inspection. Only one at a time. */
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const refresh = () => void queryClient.invalidateQueries();
   const onError = (e: unknown) =>
@@ -71,9 +137,10 @@ export function StructureReview({
       <div className="card" style={{ overflow: "hidden" }}>
         {chapters.map((chapter, i) => {
           const isShort = chapter.wordCount < 300;
+          const isOpen = expandedId === chapter.id;
           return (
+            <div key={chapter.id}>
             <div
-              key={chapter.id}
               style={{
                 display: "grid",
                 gridTemplateColumns: "34px 1fr auto",
@@ -81,7 +148,7 @@ export function StructureReview({
                 alignItems: "center",
                 padding: "11px 16px",
                 borderTop: i === 0 ? "none" : "1px solid var(--rule)",
-                background: isShort ? "var(--warn-bg)" : undefined,
+                background: isOpen ? "var(--accent-sub)" : isShort ? "var(--warn-bg)" : undefined,
               }}
             >
               <span className="num" style={{ color: "var(--muted)", fontSize: 12 }}>
@@ -116,7 +183,9 @@ export function StructureReview({
                   </form>
                 ) : (
                   <button
-                    onClick={() => onOpenChapter(chapter.id)}
+                    onClick={() => setExpandedId(isOpen ? null : chapter.id)}
+                    aria-expanded={isOpen}
+                    title={isOpen ? "Hide the text" : "Show the start and end of this chapter"}
                     style={{
                       background: "none",
                       border: 0,
@@ -124,9 +193,25 @@ export function StructureReview({
                       textAlign: "left",
                       fontFamily: "var(--serif)",
                       fontSize: 15.5,
-                      color: "var(--ink)",
+                      color: isOpen ? "var(--accent)" : "var(--ink)",
+                      display: "flex",
+                      alignItems: "baseline",
+                      gap: 7,
                     }}
                   >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        fontFamily: "var(--sans)",
+                        fontSize: 9,
+                        color: "var(--muted)",
+                        transform: isOpen ? "rotate(90deg)" : "none",
+                        display: "inline-block",
+                        transition: "transform .12s",
+                      }}
+                    >
+                      ▶
+                    </span>
                     {chapter.heading}
                   </button>
                 )}
@@ -157,6 +242,19 @@ export function StructureReview({
                   Merge up
                 </button>
               </div>
+            </div>
+
+            {isOpen && (
+              <div
+                style={{
+                  padding: "4px 16px 18px 62px",
+                  background: "var(--accent-sub)",
+                  borderBottom: "1px solid var(--rule)",
+                }}
+              >
+                <ChapterPreview projectId={projectId} chapterId={chapter.id} />
+              </div>
+            )}
             </div>
           );
         })}

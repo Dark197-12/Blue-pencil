@@ -33,9 +33,12 @@ export {
   detectChapters,
   detectScenes,
   splitParagraphs,
+  findEditorialRegions,
+  isInRegion,
   type Chapter,
   type ChapterCandidate,
   type Scene,
   type Paragraph,
+  type Region,
   type DetectOptions,
 } from "./structure.js";

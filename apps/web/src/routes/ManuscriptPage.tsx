@@ -106,7 +106,6 @@ export function ManuscriptPage() {
           projectId={id}
           chapters={chapters}
           wordCount={structure?.wordCount ?? 0}
-          onOpenChapter={setSelectedChapterId}
         />
       ) : !castConfirmed ? (
         <CastReview projectId={id} />

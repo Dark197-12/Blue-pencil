@@ -147,6 +147,32 @@ describe("extractDialogue — mechanics", () => {
   });
 });
 
+describe("extractDialogue — editorial blocks", () => {
+  it("skips a quoted illustration caption", () => {
+    const text = '“Real speech,” said Elena.\n\n[Illustration:\n\n“A caption quoting her”\n\n]\n\n“More speech,” said Marcus.';
+    const lines = extractDialogue(text);
+    expect(lines.map((l) => l.text)).toEqual(["Real speech,", "More speech,"]);
+  });
+
+  it("can be told to include them", () => {
+    const text = '“Real speech,” said Elena.\n\n[Illustration: “A caption” ]';
+    expect(extractDialogue(text, { skipEditorialRegions: false })).toHaveLength(2);
+  });
+
+  it("keeps the real line when a caption duplicates it", () => {
+    const text = '“She is tolerable,” said Darcy.\n\n[Illustration: “She is tolerable” ]';
+    const lines = extractDialogue(text);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.tag?.raw).toBe("Darcy");
+  });
+
+  it("does not let an unclosed bracket swallow the rest of the manuscript", () => {
+    const text = `[Illustration: never closed\n\n${"“Speech here,” said Elena.\n\n".repeat(60)}`;
+    // The region is capped, so dialogue past it is still found.
+    expect(extractDialogue(text).length).toBeGreaterThan(20);
+  });
+});
+
 describe("extractDialogue — Pride and Prejudice", () => {
   const text = load("pride-and-prejudice.txt");
   const lines = extractDialogue(text);

@@ -19,6 +19,8 @@
  *   unattributed rather than dropped — Phase 3 resolves them.
  */
 
+import { findEditorialRegions, isInRegion } from "./structure.js";
+
 export type QuoteStyle = "curly-double" | "straight-double" | "curly-single";
 
 export interface Segment {
@@ -259,12 +261,20 @@ export interface ExtractOptions {
   quoteStyle?: QuoteStyle;
   /** Offset added to every position, for extracting within a slice. */
   offset?: number;
+  /**
+   * Skip quoted text inside transcriber-added blocks. On by default: a
+   * Gutenberg `[Illustration: … ]` caption is usually a line of dialogue lifted
+   * from the surrounding chapter, so counting it adds a duplicate utterance the
+   * author never wrote twice.
+   */
+  skipEditorialRegions?: boolean;
 }
 
 export function extractDialogue(text: string, options: ExtractOptions = {}): DialogueLine[] {
   const style = options.quoteStyle ?? detectQuoteStyle(text);
   const base = options.offset ?? 0;
-  const spans = findQuotedSpans(text, style);
+  const regions = options.skipEditorialRegions === false ? [] : findEditorialRegions(text);
+  const spans = findQuotedSpans(text, style).filter((span) => !isInRegion(span.start, regions));
   const lines: DialogueLine[] = [];
 
   let index = 0;
