@@ -3,7 +3,7 @@ import { countWords } from "@bp/analysis";
 import { structureEditSchema } from "@bp/schema";
 
 import { prisma } from "../db.js";
-import { HttpError, requireAuth } from "../app.js";
+import { HttpError, requireAuth, heavyRoute } from "../app.js";
 import { EmptyManuscriptError, UnsupportedFileError, parseManuscript } from "../ingest/parse.js";
 import { chapterParagraphs, rebuildStructure, refreshChapterScenes } from "../ingest/structure.js";
 
@@ -53,7 +53,16 @@ export async function manuscriptRoutes(app: FastifyInstance) {
 
   // ------------------------------------------------------------- upload ---
 
-  app.post<{ Params: { id: string } }>("/:id/upload", async (request, reply) => {
+  /**
+   * Parsing a novel — unzipping an epub, splitting a quarter-million words,
+   * detecting chapters — is the most expensive thing this server does, and it
+   * is bounded by CPU rather than by the 25 MB body limit. Twelve a minute is
+   * far beyond any real editing session.
+   */
+  app.post<{ Params: { id: string } }>(
+    "/:id/upload",
+    heavyRoute,
+    async (request, reply) => {
     const project = await ownedProject(request.currentUser!.id, request.params.id);
 
     const file = await request.file();
@@ -99,7 +108,8 @@ export async function manuscriptRoutes(app: FastifyInstance) {
       format: parsed.format,
       detected: { title: parsed.title ?? null, author: parsed.author ?? null },
     });
-  });
+    },
+  );
 
   // ---------------------------------------------------------- structure ---
 

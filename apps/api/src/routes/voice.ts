@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
   buildProfiles,
-  findExamples,
+  findExamplesFor,
   voiceSimilarity,
   METRIC_LABELS,
   COMPARABLE_METRICS,
@@ -10,7 +10,7 @@ import {
 } from "@bp/analysis";
 
 import { prisma } from "../db.js";
-import { HttpError, requireAuth } from "../app.js";
+import { HttpError, requireAuth, heavyRoute } from "../app.js";
 
 async function ownedProject(userId: string, projectId: string) {
   const project = await prisma.project.findFirst({ where: { id: projectId, userId } });
@@ -45,7 +45,7 @@ const RELIABLE_METHODS = ["tag", "manual"];
 export async function voiceRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
 
-  app.get<{ Params: { id: string } }>("/:id/voice", async (request) => {
+  app.get<{ Params: { id: string } }>("/:id/voice", heavyRoute, async (request) => {
     const project = await ownedProject(request.currentUser!.id, request.params.id);
     const { includeInferred } = querySchema.parse(request.query);
 
@@ -107,12 +107,13 @@ export async function voiceRoutes(app: FastifyInstance) {
            * most of the book to justify differences nobody would notice, and
            * cost a pass over every passage fifteen times over.
            */
-          examples: Object.fromEntries(
+          examples: findExamplesFor(
+            speech.get(p.name) ?? [],
             (Object.entries(p.z) as Array<[ComparableMetric, number | undefined]>)
               .filter(([, z]) => typeof z === "number" && Math.abs(z) >= 1)
               .sort(([, a], [, b]) => Math.abs(b!) - Math.abs(a!))
               .slice(0, 5)
-              .map(([metric]) => [metric, findExamples(speech.get(p.name) ?? [], metric)]),
+              .map(([metric]) => metric),
           ),
         }))
         .sort((a, b) => b.metrics.wordCount - a.metrics.wordCount),

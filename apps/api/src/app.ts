@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
+import rateLimit from "@fastify/rate-limit";
 import { ZodError } from "zod";
 
 import { env, isProduction } from "./env.js";
@@ -34,6 +35,19 @@ export class HttpError extends Error {
   }
 }
 
+/**
+ * Route options for the handlers that re-measure a whole manuscript — parsing
+ * an upload, re-running attribution, rebuilding profiles or flags.
+ *
+ * These are seconds of CPU each, not milliseconds, and unlike the read
+ * endpoints they cannot be made cheap by an index. Twelve a minute is far more
+ * than any editing session needs and far less than it takes to tie up the
+ * process.
+ */
+export const heavyRoute = {
+  config: { rateLimit: { max: 12, timeWindow: "1 minute" } },
+} as const;
+
 export async function requireAuth(request: FastifyRequest, _reply: FastifyReply) {
   const raw = request.cookies[SESSION_COOKIE];
   if (!raw) throw new HttpError(401, "You need to sign in to do that.");
@@ -58,6 +72,47 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(cors, { origin: env.WEB_ORIGIN, credentials: true });
   await app.register(cookie, { secret: env.SESSION_SECRET });
+
+  /**
+   * Rate limiting, keyed per session where there is one.
+   *
+   * Keying on IP alone is wrong for this app in both directions: several
+   * writers behind one office address would share a budget, and a single
+   * account can open several tabs. The session id is the closest thing to "one
+   * person" available, and unauthenticated traffic falls back to IP because
+   * that is all there is.
+   *
+   * The global allowance is deliberately loose. It exists to stop a runaway
+   * client or a crawler, not to ration ordinary use — the queue screen fires a
+   * request per keystroke-decision and a writer working quickly is exactly the
+   * user this tool is for. The expensive routes are limited individually where
+   * they are defined.
+   */
+  await app.register(rateLimit, {
+    global: true,
+    max: 600,
+    timeWindow: "1 minute",
+    keyGenerator: (request) => {
+      const raw = request.cookies[SESSION_COOKIE];
+      const unsigned = raw ? request.unsignCookie(raw) : null;
+      return unsigned?.valid && unsigned.value ? `s:${unsigned.value}` : `ip:${request.ip}`;
+    },
+    /**
+     * Returns an HttpError rather than a response object.
+     *
+     * Whatever this builds is handed to the error handler *as the error*. A
+     * plain `{ error: { message } }` has no `statusCode` and is not an
+     * `Error`, so it fell through every branch below and was reported as a
+     * 500 — the limiter worked, set its Retry-After header, and then told the
+     * client the server had broken. Returning the same type the rest of the
+     * app throws puts it back on the one formatting path.
+     */
+    errorResponseBuilder: (_request, context) =>
+      new HttpError(
+        429,
+        `That’s a lot of requests at once. Try again in ${Math.ceil(context.ttl / 1000)}s.`,
+      ),
+  });
 
   // A 200k-word manuscript is only ~1 MB of text, but .docx and .epub carry
   // embedded images. 25 MB is generous for prose and still bounded.

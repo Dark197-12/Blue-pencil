@@ -1,4 +1,4 @@
-import { computeMetrics, type ComparableMetric } from "./metrics.js";
+import { computeMetrics, type ComparableMetric, type Metrics } from "./metrics.js";
 
 /**
  * The lines behind a number.
@@ -62,21 +62,70 @@ export function findExamples(
   metric: ComparableMetric,
   options: ExampleOptions = {},
 ): { high: Example[]; low: Example[] } {
-  const count = options.count ?? 2;
-  const minWords = options.minWords ?? 12;
+  return rank(measurePassages(passages, options.minWords ?? 12), metric, options.count ?? 2);
+}
 
-  const scored: Example[] = [];
+interface MeasuredPassage {
+  index: number;
+  text: string;
+  metrics: Metrics;
+}
 
+/**
+ * Measures each passage once.
+ *
+ * Kept separate because the cost here is tokenisation, and asking for examples
+ * of five metrics used to mean tokenising the whole cast's dialogue five times
+ * over — 164ms of the voice endpoint's response, nearly all of it repeated
+ * work.
+ */
+function measurePassages(
+  passages: ReadonlyArray<string>,
+  minWords: number,
+): MeasuredPassage[] {
+  const measured: MeasuredPassage[] = [];
   passages.forEach((text, index) => {
     const metrics = computeMetrics([text]);
     if (metrics.wordCount < minWords) return;
-    if (PER_SENTENCE.has(metric) && metrics.sentenceCount < 1) return;
-
-    const value = metrics[metric];
-    if (typeof value !== "number" || !Number.isFinite(value)) return;
-
-    scored.push({ index, text, value, wordCount: metrics.wordCount });
+    measured.push({ index, text, metrics });
   });
+  return measured;
+}
+
+/** Examples for several metrics, measuring each passage only once. */
+export function findExamplesFor(
+  passages: ReadonlyArray<string>,
+  metrics: ReadonlyArray<ComparableMetric>,
+  options: ExampleOptions = {},
+): Partial<Record<ComparableMetric, { high: Example[]; low: Example[] }>> {
+  const measured = measurePassages(passages, options.minWords ?? 12);
+  const count = options.count ?? 2;
+
+  return Object.fromEntries(
+    metrics.map((metric) => [metric, rank(measured, metric, count)]),
+  ) as Partial<Record<ComparableMetric, { high: Example[]; low: Example[] }>>;
+}
+
+function rank(
+  measured: ReadonlyArray<MeasuredPassage>,
+  metric: ComparableMetric,
+  count: number,
+): { high: Example[]; low: Example[] } {
+  const scored: Example[] = [];
+
+  for (const passage of measured) {
+    if (PER_SENTENCE.has(metric) && passage.metrics.sentenceCount < 1) continue;
+
+    const value = passage.metrics[metric];
+    if (typeof value !== "number" || !Number.isFinite(value)) continue;
+
+    scored.push({
+      index: passage.index,
+      text: passage.text,
+      value,
+      wordCount: passage.metrics.wordCount,
+    });
+  }
 
   if (scored.length === 0) return { high: [], low: [] };
 

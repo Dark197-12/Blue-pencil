@@ -11,7 +11,7 @@ import {
 } from "@bp/analysis";
 
 import { prisma } from "../db.js";
-import { HttpError, requireAuth } from "../app.js";
+import { HttpError, requireAuth, heavyRoute } from "../app.js";
 
 async function ownedProject(userId: string, projectId: string) {
   const project = await prisma.project.findFirst({ where: { id: projectId, userId } });
@@ -33,7 +33,7 @@ const RELIABLE_METHODS = ["tag", "manual"];
 export async function arcRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
 
-  app.get<{ Params: { id: string } }>("/:id/arcs", async (request) => {
+  app.get<{ Params: { id: string } }>("/:id/arcs", heavyRoute, async (request) => {
     const project = await ownedProject(request.currentUser!.id, request.params.id);
 
     const [lines, characters, scenes] = await Promise.all([

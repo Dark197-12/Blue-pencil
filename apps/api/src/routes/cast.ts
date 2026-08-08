@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { prisma } from "../db.js";
-import { HttpError, requireAuth } from "../app.js";
+import { HttpError, requireAuth, heavyRoute } from "../app.js";
 import { extractProjectDialogue } from "../ingest/dialogue.js";
 import { reinferSpeakers } from "../ingest/reinfer.js";
 
@@ -25,7 +25,7 @@ export async function castRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
 
   /** Runs (or re-runs) dialogue extraction. Discards any manual attributions. */
-  app.post<{ Params: { id: string } }>("/:id/dialogue/extract", async (request) => {
+  app.post<{ Params: { id: string } }>("/:id/dialogue/extract", heavyRoute, async (request) => {
     const project = await ownedProject(request.currentUser!.id, request.params.id);
     if (!project.structureConfirmedAt) {
       throw new HttpError(400, "Confirm the chapter split first — dialogue is anchored to scenes.");
@@ -42,7 +42,7 @@ export async function castRoutes(app: FastifyInstance) {
    * that coverage forever, or have to be re-extracted at the cost of the
    * author's own corrections.
    */
-  app.post<{ Params: { id: string } }>("/:id/dialogue/reinfer", async (request) => {
+  app.post<{ Params: { id: string } }>("/:id/dialogue/reinfer", heavyRoute, async (request) => {
     const project = await ownedProject(request.currentUser!.id, request.params.id);
     if (!project.structureConfirmedAt) {
       throw new HttpError(400, "Confirm the chapter split first — dialogue is anchored to scenes.");

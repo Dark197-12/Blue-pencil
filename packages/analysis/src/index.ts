@@ -145,4 +145,9 @@ export {
   type ClosureOptions,
 } from "./closure.js";
 
-export { findExamples, type Example, type ExampleOptions } from "./examples.js";
+export {
+  findExamples,
+  findExamplesFor,
+  type Example,
+  type ExampleOptions,
+} from "./examples.js";

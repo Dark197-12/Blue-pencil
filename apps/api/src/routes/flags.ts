@@ -13,7 +13,7 @@ import {
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "../db.js";
-import { HttpError, requireAuth } from "../app.js";
+import { HttpError, requireAuth, heavyRoute } from "../app.js";
 
 async function ownedProject(userId: string, projectId: string) {
   const project = await prisma.project.findFirst({ where: { id: projectId, userId } });
@@ -165,7 +165,7 @@ export async function flagRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
 
   /** Runs detection. Called after attribution changes, or when settings do. */
-  app.post<{ Params: { id: string } }>("/:id/flags/recompute", async (request) => {
+  app.post<{ Params: { id: string } }>("/:id/flags/recompute", heavyRoute, async (request) => {
     const project = await ownedProject(request.currentUser!.id, request.params.id);
     const { flagCount } = await recomputeFlags(
       project.id,

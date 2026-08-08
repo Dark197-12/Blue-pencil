@@ -23,7 +23,18 @@ const publicUser = (user: { id: string; email: string; createdAt: Date }) => ({
 export async function authRoutes(app: FastifyInstance) {
   const cookieOptions = sessionCookieOptions(isProduction);
 
-  app.post("/signup", async (request, reply) => {
+  /**
+   * Sign-up and sign-in are limited far harder than anything else, and by IP
+   * rather than by session — there is no session yet, and the attack these
+   * guard against is precisely someone working through passwords without one.
+   * Ten a minute is beyond any honest typist and nowhere near a useful rate
+   * for guessing.
+   */
+  const credentialLimit = {
+    config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+  };
+
+  app.post("/signup", credentialLimit, async (request, reply) => {
     const { email, password } = credentialsSchema.parse(request.body);
 
     const passwordHash = await hashPassword(password);
@@ -46,7 +57,7 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.status(201).send({ user: publicUser(user) });
   });
 
-  app.post("/signin", async (request, reply) => {
+  app.post("/signin", credentialLimit, async (request, reply) => {
     const { email, password } = credentialsSchema.parse(request.body);
 
     const user = await prisma.user.findUnique({ where: { email } });
