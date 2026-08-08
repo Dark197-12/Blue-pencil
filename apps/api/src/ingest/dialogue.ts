@@ -1,4 +1,4 @@
-import { buildCast, extractDialogue, type DialogueLine } from "@bp/analysis";
+import { buildCast, extractDialogue, inferByAlternation, type DialogueLine } from "@bp/analysis";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../db.js";
 
@@ -12,7 +12,32 @@ import { prisma } from "../db.js";
 const wordCountOf = (text: string) => (text.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? []).length;
 
 export async function extractProjectDialogue(projectId: string, sourceText: string) {
-  const lines = extractDialogue(sourceText);
+  /**
+   * Extraction runs chapter by chapter, not over the whole file.
+   *
+   * Front matter is full of quotation marks that are not dialogue. Pride and
+   * Prejudice opens with a scholarly preface quoting Walt Whitman, which yields
+   * 89 "utterances" like "loving by allowance" — junk that would sit at the top
+   * of the review queue and inflate every denominator.
+   *
+   * Working per chapter also stops a conversation being carried across a
+   * chapter break, which alternation would otherwise treat as one exchange.
+   */
+  const chapters = await prisma.chapter.findMany({
+    where: { projectId },
+    orderBy: { startOffset: "asc" },
+    select: { startOffset: true, endOffset: true },
+  });
+
+  const lines =
+    chapters.length > 0
+      ? chapters.flatMap((chapter) =>
+          extractDialogue(sourceText.slice(chapter.startOffset, chapter.endOffset), {
+            offset: chapter.startOffset,
+          }),
+        )
+      : extractDialogue(sourceText);
+
   const cast = buildCast(lines);
 
   // Scene lookup, so each line can be anchored to where it happens.
@@ -49,8 +74,35 @@ export async function extractProjectDialogue(projectId: string, sourceText: stri
         for (const alias of member.aliases) characterIds.set(alias, created.id);
       }
 
-      const rows = lines.map((line: DialogueLine) => {
-        const characterId = line.tag?.kind === "name" ? (characterIds.get(line.tag.raw) ?? null) : null;
+      /**
+       * Tier 2 runs over the tier-1 result: alternation needs named lines to
+       * anchor to, so it can only work once the speech tags are resolved.
+       */
+      const nameOf = new Map<string, string>();
+      for (const member of cast.members) {
+        for (const alias of member.aliases) nameOf.set(alias, member.name);
+      }
+      const idOfName = new Map<string, string>();
+      for (const member of cast.members) {
+        const id = characterIds.get(member.name);
+        if (id) idOfName.set(member.name, id);
+      }
+
+      const anchored = lines.map((line) => ({
+        line,
+        speaker: line.tag?.kind === "name" ? (nameOf.get(line.tag.raw) ?? null) : null,
+      }));
+
+      const inferred = new Map<number, { characterId: string; confidence: number }>();
+      for (const result of inferByAlternation(anchored)) {
+        const id = idOfName.get(result.speaker);
+        if (id) inferred.set(result.index, { characterId: id, confidence: result.confidence });
+      }
+
+      const rows = lines.map((line: DialogueLine, index: number) => {
+        const tagged = line.tag?.kind === "name" ? (characterIds.get(line.tag.raw) ?? null) : null;
+        const guess = tagged ? null : inferred.get(index);
+        const characterId = tagged ?? guess?.characterId ?? null;
         return {
           projectId,
           sceneId: sceneFor(line.start),
@@ -64,9 +116,10 @@ export async function extractProjectDialogue(projectId: string, sourceText: stri
           speakerRaw: line.tag?.raw ?? null,
           speakerKind: line.tag?.kind ?? null,
           characterId,
-          // Only a speech tag naming someone counts as tier-1 attribution.
-          method: characterId ? "tag" : null,
-          confidence: characterId ? 0.95 : null,
+          // A speech tag naming someone is near-certain; alternation is an
+          // inference and carries its own, lower, confidence.
+          method: tagged ? "tag" : guess ? "alternation" : null,
+          confidence: tagged ? 0.95 : (guess?.confidence ?? null),
         };
       });
 
@@ -84,16 +137,24 @@ export async function extractProjectDialogue(projectId: string, sourceText: stri
   // word, say — and those lines stay unattributed. Reporting the tag count here
   // would overstate coverage and disagree with the cast screen.
   const namedTags = lines.filter((l) => l.tag?.kind === "name").length;
-  const attributed = await prisma.dialogueLine.count({
-    where: { projectId, characterId: { not: null } },
+  const byMethod = await prisma.dialogueLine.groupBy({
+    by: ["method"],
+    where: { projectId },
+    _count: { _all: true },
   });
+  const countFor = (method: string) =>
+    byMethod.find((row) => row.method === method)?._count._all ?? 0;
+
+  const fromTags = countFor("tag");
+  const fromAlternation = countFor("alternation");
 
   return {
     lineCount: lines.length,
     characterCount: cast.members.length,
-    attributedCount: attributed,
+    attributedCount: fromTags + fromAlternation,
+    byMethod: { tag: fromTags, alternation: fromAlternation },
     /** Tagged with a name that did not survive into the cast. */
-    unresolvedNameTags: namedTags - attributed,
+    unresolvedNameTags: namedTags - fromTags,
     suggestions: cast.suggestions,
     rejected: cast.rejected.slice(0, 20),
   };

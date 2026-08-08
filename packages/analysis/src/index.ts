@@ -1,4 +1,12 @@
 export {
+  inferByAlternation,
+  findExchanges,
+  type Anchored,
+  type AlternationResult,
+  type AlternationOptions,
+} from "./alternation.js";
+
+export {
   normalizeText,
   stripGutenbergBoilerplate,
   readGutenbergMeta,

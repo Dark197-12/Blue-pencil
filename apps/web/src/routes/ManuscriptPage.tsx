@@ -7,6 +7,7 @@ import { useAuth } from "../auth";
 import { Upload } from "./Upload";
 import { StructureReview } from "./StructureReview";
 import { CastReview } from "./CastReview";
+import { AttributionQueue } from "./AttributionQueue";
 import { Reader } from "./Reader";
 
 /**
@@ -19,6 +20,8 @@ export function ManuscriptPage() {
   const [selectedChapterId, setSelectedChapterId] = useState<string>("");
   /** Lets the author reopen the cast screen after confirming it. */
   const [showCast, setShowCast] = useState(false);
+  /** Which working surface is showing once setup is done. */
+  const [pane, setPane] = useState<"reader" | "queue">("reader");
 
   const projectQuery = useQuery({
     queryKey: ["project", id],
@@ -114,23 +117,34 @@ export function ManuscriptPage() {
           <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
             <span className="eyebrow">Manuscript</span>
             <span style={{ fontSize: 12, color: "var(--muted)" }}>
-              Dialogue with a named speaker is highlighted. Working out the untagged lines comes next.
+              Dialogue with a known speaker is highlighted. Use “Fix attributions” for the rest.
             </span>
             <button
               className="btn"
               style={{ marginLeft: "auto", padding: "4px 10px", fontSize: 11.5 }}
+              onClick={() => setPane(pane === "reader" ? "queue" : "reader")}
+            >
+              {pane === "reader" ? "Fix attributions" : "Back to the manuscript"}
+            </button>
+            <button
+              className="btn"
+              style={{ padding: "4px 10px", fontSize: 11.5 }}
               onClick={() => setShowCast(true)}
             >
               Edit cast
             </button>
           </div>
-          {selectedChapterId && (
+          {pane === "queue" ? (
+            <AttributionQueue projectId={id} />
+          ) : (
+            selectedChapterId && (
             <Reader
               projectId={id}
               chapters={chapters}
               selectedChapterId={selectedChapterId}
               onSelectChapter={setSelectedChapterId}
             />
+            )
           )}
         </div>
       )}

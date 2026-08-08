@@ -160,4 +160,46 @@ export const api = {
     request<{ lines: DialogueLine[] }>(
       `/api/projects/${projectId}/chapters/${chapterId}/dialogue`,
     ),
+
+  // ----------------------------------------------------------- attribution --
+
+  getAttributionStats: (id: string) =>
+    request<{
+      total: number;
+      tag: number;
+      alternation: number;
+      llm: number;
+      manual: number;
+      unattributed: number;
+      uncertain: number;
+    }>(`/api/projects/${id}/attribution/stats`),
+
+  getAttributionQueue: (id: string, filter: "unattributed" | "uncertain" | "all", limit = 20) =>
+    request<{
+      total: number;
+      offset: number;
+      limit: number;
+      filter: string;
+      items: QueueItem[];
+    }>(`/api/projects/${id}/attribution/queue?filter=${filter}&limit=${limit}`),
+
+  assignSpeaker: (id: string, lineId: string, characterId: string | null) =>
+    request<{ line: { id: string; character: { id: string; name: string } | null } }>(
+      `/api/projects/${id}/dialogue/${lineId}`,
+      { method: "PATCH", body: JSON.stringify({ characterId }) },
+    ),
 };
+
+export interface QueueItem {
+  id: string;
+  startOffset: number;
+  text: string;
+  wordCount: number;
+  speakerRaw: string | null;
+  speakerKind: string | null;
+  method: string | null;
+  confidence: number | null;
+  character: { id: string; name: string } | null;
+  context: { before: string; after: string };
+  candidates: Array<{ id: string; name: string; nearbyCount: number; totalLines: number }>;
+}

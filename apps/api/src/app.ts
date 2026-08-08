@@ -10,6 +10,7 @@ import { authRoutes } from "./routes/auth.js";
 import { projectRoutes } from "./routes/projects.js";
 import { manuscriptRoutes } from "./routes/manuscript.js";
 import { castRoutes } from "./routes/cast.js";
+import { attributionRoutes } from "./routes/attribution.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -110,6 +111,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(projectRoutes, { prefix: "/api/projects" });
   await app.register(manuscriptRoutes, { prefix: "/api/projects" });
   await app.register(castRoutes, { prefix: "/api/projects" });
+  await app.register(attributionRoutes, { prefix: "/api/projects" });
 
   return app;
 }
