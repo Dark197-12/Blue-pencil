@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, RequestError } from "../api";
+import { isDemo } from "../demo";
 import { useAuth } from "../auth";
 
 const formatDate = (iso: string) =>
@@ -56,10 +57,18 @@ export function Projects() {
         }}
       >
         <span className="brand-mark">Blue Pencil</span>
-        <span style={{ marginLeft: "auto", fontSize: 12.5, color: "var(--muted)" }}>{user?.email}</span>
-        <button className="btn" onClick={() => void signOut()} style={{ padding: "5px 10px", fontSize: 12.5 }}>
-          Sign out
-        </button>
+        {isDemo ? (
+          <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)" }}>
+            Read-only demo · open the manuscript below
+          </span>
+        ) : (
+          <>
+            <span style={{ marginLeft: "auto", fontSize: 12.5, color: "var(--muted)" }}>{user?.email}</span>
+            <button className="btn" onClick={() => void signOut()} style={{ padding: "5px 10px", fontSize: 12.5 }}>
+              Sign out
+            </button>
+          </>
+        )}
       </header>
 
       <main style={{ maxWidth: 780, margin: "0 auto", padding: "34px 24px 80px", display: "grid", gap: 24 }}>
@@ -74,6 +83,7 @@ export function Projects() {
           </p>
         </div>
 
+        {!isDemo && (
         <form className="card" onSubmit={onSubmit} style={{ padding: 16, display: "flex", gap: 10, alignItems: "flex-end" }}>
           <div className="field" style={{ flex: 1 }}>
             <label htmlFor="title">New manuscript</label>
@@ -89,6 +99,7 @@ export function Projects() {
             {create.isPending ? "Creating…" : "Create"}
           </button>
         </form>
+        )}
 
         {error && <p className="banner">{error}</p>}
 

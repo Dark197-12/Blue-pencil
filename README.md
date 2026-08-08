@@ -25,6 +25,38 @@ pnpm install && pnpm db:migrate && pnpm seed:demo && pnpm dev
 That seeds *Pride and Prejudice*, fully processed, so there is something to look at
 immediately. Sign in as `demo@bluepencil.local` / `demo-pencil-2026`.
 
+## The live demo
+
+**[Try it](https://dark197-12.github.io/Blue-pencil/)** — *Pride and Prejudice*,
+fully processed. No sign-in.
+
+It runs with no server and no database. Every read endpoint here is a pure
+function of a stored manuscript, so the answers can be recorded once and served
+as files: [`apps/api/src/snapshot.ts`](apps/api/src/snapshot.ts) drives the real
+application through `app.inject` and writes each response to
+`apps/web/public/demo`. Driving the app rather than querying the database and
+reassembling the shapes by hand removes the only real risk in the exercise — a
+snapshot that quietly disagrees with what the server would have said.
+
+The browser then substitutes those files at the single point where the app talks
+to the network. Every screen, query and component above that line is unchanged
+and cannot tell the difference, which is the only reason this is worth doing: a
+demo built from a separate cut-down copy of the interface would drift from the
+real one and stop being evidence of anything.
+
+**Live in the demo:** the reader with speaker highlighting and margin marks,
+voice profiles with the passages behind every number, the similarity matrix,
+the flag inbox with its reasoning and evidence sizes, the coverage figures on
+*Over time*, and the attribution queue.
+
+**Not live:** uploading a manuscript, correcting attributions, dismissing flags.
+Those write to a database. They are refused with a message saying so rather than
+hidden, so it is clear they exist. `pnpm dev` gives you all of them.
+
+Why static: every free container host tried during this build either wanted a
+payment method or was shutting its platform down. Static hosting is free
+everywhere, never sleeps, and cannot expire.
+
 ## What it actually does
 
 **Ingest** `.txt`, `.md`, `.docx` and `.epub`, then find chapters and scenes. The

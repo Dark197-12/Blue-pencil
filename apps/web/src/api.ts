@@ -11,6 +11,8 @@ import type {
   User,
 } from "@bp/schema";
 
+import { DEMO_WRITE_MESSAGE, isDemo, loadSnapshot } from "./demo";
+
 /**
  * Where the API lives.
  *
@@ -42,6 +44,25 @@ export class RequestError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  /**
+   * In the static demo there is no server, so reads come from recorded
+   * responses and writes are refused with an explanation.
+   *
+   * Intercepting here rather than higher up means every caller — every query,
+   * every component — is untouched and behaves identically. A demo assembled
+   * from a parallel, cut-down interface would drift from the real one and stop
+   * being evidence of anything.
+   */
+  if (isDemo) {
+    const method = init?.method ?? "GET";
+    if (method !== "GET") throw new RequestError(403, DEMO_WRITE_MESSAGE);
+    try {
+      return await loadSnapshot<T>(path);
+    } catch {
+      throw new RequestError(404, "That part of the manuscript isn’t in the demo snapshot.");
+    }
+  }
+
   let response: Response;
   try {
     // FormData must set its own Content-Type: the browser appends the multipart

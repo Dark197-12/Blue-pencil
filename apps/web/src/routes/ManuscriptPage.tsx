@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api";
+import { isDemo } from "../demo";
 import { useAuth } from "../auth";
 import { Upload } from "./Upload";
 import { StructureReview } from "./StructureReview";
@@ -150,13 +151,17 @@ export function ManuscriptPage() {
             >
               {pane === "time" ? "Back to the manuscript" : "Over time"}
             </button>
-            <button
-              className="btn"
-              style={{ padding: "4px 10px", fontSize: 11.5 }}
-              onClick={() => setShowCast(true)}
-            >
-              Edit cast
-            </button>
+            {/* Hidden in the demo: the cast screen is a confirm step, and with
+                writes refused there would be no way back out of it. */}
+            {!isDemo && (
+              <button
+                className="btn"
+                style={{ padding: "4px 10px", fontSize: 11.5 }}
+                onClick={() => setShowCast(true)}
+              >
+                Edit cast
+              </button>
+            )}
           </div>
           {pane === "queue" ? (
             <AttributionQueue projectId={id} />
@@ -213,10 +218,50 @@ function Shell({
         <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
           <span className="brand-mark">Blue Pencil</span>
         </Link>
-        <span style={{ marginLeft: "auto", fontSize: 12.5, color: "var(--muted)" }}>{user}</span>
-        <button className="btn" onClick={() => void onSignOut()} style={{ padding: "5px 10px", fontSize: 12.5 }}>
-          Sign out
-        </button>
+        {isDemo ? (
+          /**
+           * Says what this is before anyone clicks something that will refuse.
+           * A reviewer should be able to tell that uploading and editing exist
+           * and are absent for a hosting reason — not that they were never
+           * built.
+           */
+          <span
+            style={{
+              marginLeft: "auto",
+              fontSize: 12,
+              color: "var(--muted)",
+              display: "flex",
+              alignItems: "baseline",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: "var(--accent)",
+                border: "1px solid currentColor",
+                borderRadius: 3,
+                padding: "1px 5px",
+              }}
+            >
+              Demo
+            </span>
+            <span>Read-only. Reading and analysis are live; uploading and editing need the server.</span>
+          </span>
+        ) : (
+          <>
+            <span style={{ marginLeft: "auto", fontSize: 12.5, color: "var(--muted)" }}>{user}</span>
+            <button
+              className="btn"
+              onClick={() => void onSignOut()}
+              style={{ padding: "5px 10px", fontSize: 12.5 }}
+            >
+              Sign out
+            </button>
+          </>
+        )}
       </header>
       <main style={{ maxWidth: 980, margin: "0 auto", padding: "28px 24px 80px" }}>{children}</main>
     </div>

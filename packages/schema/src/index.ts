@@ -151,3 +151,29 @@ export const apiErrorSchema = z.object({
   }),
 });
 export type ApiError = z.infer<typeof apiErrorSchema>;
+
+// ---------------------------------------------------------- static demo ----
+
+/**
+ * The filename a given API request is snapshotted to for the static demo.
+ *
+ * Blue Pencil's read endpoints are pure functions of a manuscript, so a
+ * deployment with no server can serve pre-computed answers from disk. The
+ * snapshot writer and the browser both call this, which is the point of it
+ * living here: two copies of the naming rule would drift the first time a
+ * query parameter changed, and the failure would be a 404 for one endpoint
+ * rather than anything obvious.
+ *
+ * The query string is part of the name because it is part of the answer —
+ * `?status=open` and `?status=dismissed` are different responses from the same
+ * path, and `?includeInferred=true` changes every number on the page.
+ */
+export function snapshotName(url: string): string {
+  const [path = "", query = ""] = url.split("?");
+  const slug = `${path}${query ? `-${query}` : ""}`
+    .replace(/^\/api\//, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
+  return `${slug || "root"}.json`;
+}

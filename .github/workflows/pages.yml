@@ -1,0 +1,72 @@
+name: Demo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Publishing to Pages needs these; the default token is read-only.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never two deploys at once, but let a running one finish rather than
+# cancelling it half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      # Serves the read-only demo from recorded API responses, which are
+      # committed under apps/web/public/demo. No database is involved.
+      VITE_DEMO: "1"
+      # GitHub Pages serves a project site from /<repo>/, so assets and
+      # client-side routes both need that prefix.
+      VITE_BASE_PATH: /${{ github.event.repository.name }}/
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build workspace packages
+        run: pnpm build:packages
+
+      - name: Build the demo
+        run: pnpm --filter @bp/web build
+
+      # Pages has no rewrite rules, so a deep link like /projects/<id> would
+      # 404 before the router ever loaded. Serving the same document as the
+      # 404 page lets the client-side router take over instead.
+      - name: Add the SPA fallback
+        run: cp apps/web/dist/index.html apps/web/dist/404.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

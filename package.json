@@ -15,7 +15,8 @@
     "db:generate": "pnpm --filter @bp/api db:generate",
     "db:migrate": "pnpm --filter @bp/api db:migrate",
     "db:studio": "pnpm --filter @bp/api db:studio",
-    "seed:demo": "pnpm --filter @bp/api seed"
+    "seed:demo": "pnpm --filter @bp/api seed",
+    "demo:snapshot": "pnpm --filter @bp/api snapshot"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

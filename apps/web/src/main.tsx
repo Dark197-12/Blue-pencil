@@ -21,7 +21,8 @@ if (!root) throw new Error("No #root element in index.html.");
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      {/* Matches Vite base, so client-side routes resolve under /<repo>/ too. */}
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
         <App />
       </BrowserRouter>
     </QueryClientProvider>
