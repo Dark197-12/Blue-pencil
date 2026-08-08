@@ -123,6 +123,23 @@ export async function buildApp(): Promise<FastifyInstance> {
   // handler ever runs, so the request silently does nothing. Accept any content
   // type when the body is empty; reject it only when there is something we
   // genuinely cannot parse.
+  /**
+   * The catch-all below does not cover `application/json`, because Fastify
+   * ships a parser for it and a built-in wins over a wildcard. That parser
+   * rejects an empty body outright, so a body-less POST sent as JSON — which
+   * is what most HTTP clients and curl default to — answered 400 and the
+   * handler never ran. Replacing it keeps JSON parsing and its errors intact
+   * while treating "no body at all" as exactly that.
+   */
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (_request, body: string, done) => {
+    if (body.trim() === "") return done(null, undefined);
+    try {
+      done(null, JSON.parse(body));
+    } catch {
+      done(new Error("Send valid JSON."), undefined);
+    }
+  });
+
   app.addContentTypeParser("*", { parseAs: "buffer" }, (_request, body: Buffer, done) => {
     if (body.length === 0) return done(null, undefined);
     // A non-empty body in a type we don't parse. Fastify handles errors raised

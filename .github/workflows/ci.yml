@@ -13,10 +13,32 @@ jobs:
   check:
     runs-on: ubuntu-latest
 
-    # Typecheck needs a Prisma client, and `prisma generate` reads DATABASE_URL
-    # even though it never connects. A dummy value is enough; no service needed.
+    # The API route tests run against a real database rather than a mocked
+    # Prisma: the bugs worth catching there — a route that forgets `userId` in
+    # its where clause, a cascade that does not fire — only exist against real
+    # Postgres. The suite creates and migrates `bluepencil_test` itself.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        # Steps start as soon as the container does, which is well before
+        # Postgres is accepting connections. Without this the first query in
+        # the run fails on a race rather than on anything real.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
-      DATABASE_URL: postgresql://user:pass@localhost:5432/bluepencil
+      # `prisma generate` reads DATABASE_URL even though it never connects, and
+      # the migrate step needs a real one.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bluepencil
       SESSION_SECRET: ci-session-secret-that-is-long-enough-to-pass-validation
 
     steps:

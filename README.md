@@ -142,7 +142,7 @@ TypeScript throughout, pnpm workspace.
 | ------------------- | --------------------------------------------------------------------- |
 | `packages/analysis` | Pure functions — structure, dialogue, metrics, baselines, flags, arcs. No I/O, 265 tests. |
 | `packages/schema`   | Zod contracts shared by the API and the web app.                      |
-| `apps/api`          | Fastify 5 + Prisma 6 + Postgres. Session auth, rate limiting.          |
+| `apps/api`          | Fastify 5 + Prisma 6 + Postgres. Session auth, rate limiting. 41 route tests against a real database. |
 | `apps/web`          | Vite 6 + React + TanStack Query.                                      |
 | `fixtures/`         | Public-domain Gutenberg texts, committed so tests run offline.         |
 
@@ -178,12 +178,16 @@ pnpm dev                     # api on :3001, web on :5173
 Other commands:
 
 ```bash
-pnpm test                              # 271 tests
+pnpm test                              # 306 tests
 pnpm typecheck
 pnpm build
 pnpm db:studio                         # browse the database
 node scripts/eval-attribution.mjs      # measure attribution against ground truth
 ```
+
+The API route tests need Postgres too. They create and migrate their own
+`bluepencil_test` database on first run, truncate it between tests, and refuse to
+start against a database whose name does not end in `_test`.
 
 ## Test fixtures
 
