@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../api";
+import { api, type MetricExample } from "../api";
 
 /**
  * Voice profiles: how each character differs from the rest of the cast.
@@ -14,6 +14,8 @@ import { api } from "../api";
 export function VoiceProfiles({ projectId }: { projectId: string }) {
   const [includeInferred, setIncludeInferred] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  /** Which measure has its evidence open. One at a time, so the page stays readable. */
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["voice", projectId, includeInferred],
@@ -122,9 +124,14 @@ export function VoiceProfiles({ projectId }: { projectId: string }) {
                     .map(({ key, z, raw }) => (
                       <DeviationRow
                         key={key}
+                        metric={key}
                         label={data?.metricLabels[key] ?? key}
                         z={z!}
                         raw={typeof raw === "number" ? raw : null}
+                        examples={current.examples?.[key]}
+                        name={current.name}
+                        expanded={expanded === key}
+                        onToggle={() => setExpanded(expanded === key ? null : key)}
                       />
                     ))}
                 </div>
@@ -199,13 +206,75 @@ export function VoiceProfiles({ projectId }: { projectId: string }) {
   );
 }
 
-function DeviationRow({ label, z, raw }: { label: string; z: number; raw: number | null }) {
+/**
+ * One measure, with the lines behind it a click away.
+ *
+ * The evidence is collapsed by default. Fifteen open quote blocks would bury
+ * the shape of the profile, which is what the bars are for — but a number the
+ * author disagrees with is worthless until they can see what produced it.
+ */
+function DeviationRow({
+  metric,
+  label,
+  z,
+  raw,
+  examples,
+  name,
+  expanded,
+  onToggle,
+}: {
+  metric: string;
+  label: string;
+  z: number;
+  raw: number | null;
+  examples?: { high: MetricExample[]; low: MetricExample[] };
+  name: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   const magnitude = Math.min(Math.abs(z) / 3, 1) * 50;
   const notable = Math.abs(z) >= 1.5;
+  const hasEvidence = Boolean(examples && (examples.high.length > 0 || examples.low.length > 0));
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 108px", gap: 12, alignItems: "center", padding: "4px 0" }}>
-      <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{label}</span>
+    <>
+    <div
+      onClick={hasEvidence ? onToggle : undefined}
+      role={hasEvidence ? "button" : undefined}
+      tabIndex={hasEvidence ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (hasEvidence && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+      title={hasEvidence ? `Show the lines behind ${label.toLowerCase()}` : undefined}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "150px 1fr 108px",
+        gap: 12,
+        alignItems: "center",
+        padding: "4px 0",
+        cursor: hasEvidence ? "pointer" : undefined,
+      }}
+    >
+      <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>
+        {hasEvidence && (
+          <span
+            aria-hidden
+            style={{
+              display: "inline-block",
+              width: 10,
+              color: "var(--muted)",
+              transform: expanded ? "rotate(90deg)" : undefined,
+              transition: "transform 120ms",
+            }}
+          >
+            ›
+          </span>
+        )}
+        {label}
+      </span>
 
       <span style={{ position: "relative", height: 20 }}>
         <span
@@ -242,6 +311,66 @@ function DeviationRow({ label, z, raw }: { label: string; z: number; raw: number
         </b>
         {raw !== null && <span> · {raw.toFixed(raw < 10 ? 2 : 1)}</span>}
       </span>
+    </div>
+
+    {expanded && examples && (
+      <div
+        style={{
+          gridColumn: "1 / -1",
+          margin: "2px 0 12px",
+          padding: "10px 14px",
+          borderLeft: "2px solid var(--rule-2)",
+          display: "grid",
+          gap: 12,
+        }}
+      >
+        <Evidence
+          heading={`Where ${name} is most like this`}
+          metric={metric}
+          items={examples.high}
+        />
+        {examples.low.length > 0 && (
+          <Evidence heading="And least" metric={metric} items={examples.low} />
+        )}
+      </div>
+    )}
+    </>
+  );
+}
+
+function Evidence({
+  heading,
+  metric,
+  items,
+}: {
+  heading: string;
+  metric: string;
+  items: MetricExample[];
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      <span style={{ fontSize: 10.5, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)" }}>
+        {heading}
+      </span>
+      {items.map((item) => (
+        <div key={`${metric}-${item.index}`} style={{ display: "grid", gap: 2 }}>
+          <q
+            style={{
+              fontFamily: "var(--serif)",
+              fontSize: 14.5,
+              lineHeight: 1.55,
+              color: "var(--ink)",
+            }}
+          >
+            {item.text}
+          </q>
+          <span className="num" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+            {item.value.toFixed(item.value < 10 ? 2 : 1)} · {item.wordCount} words
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

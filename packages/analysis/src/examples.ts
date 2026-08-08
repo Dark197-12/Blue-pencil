@@ -1,0 +1,97 @@
+import { computeMetrics, type ComparableMetric } from "./metrics.js";
+
+/**
+ * The lines behind a number.
+ *
+ * Every measure in this tool is an assertion about someone's writing, and an
+ * assertion a writer cannot check is worth very little. "Mr. Collins averages
+ * 28.9 words per sentence" is a fact about a spreadsheet; the sentence that
+ * runs to sixty-one words is a fact about the book, and it is the one that
+ * tells an author what to do next.
+ *
+ * So each metric can name the passages that most exemplify it, at both ends.
+ * Both ends matter: the top of the list shows what the number is made of, and
+ * the bottom shows whether it is a consistent habit or one outlier dragging an
+ * average. A character whose "longest sentences" and "shortest sentences" are
+ * nine words apart has a different problem from one where they differ by fifty.
+ */
+
+export interface Example {
+  /** Index into the passages that were measured. */
+  index: number;
+  text: string;
+  /** This passage's own value for the metric. */
+  value: number;
+  wordCount: number;
+}
+
+export interface ExampleOptions {
+  /** How many to return at each end. */
+  count?: number;
+  /**
+   * Words a passage needs before it can be quoted as evidence.
+   *
+   * A three-word passage has a mean sentence length, and it is always either
+   * the highest or the lowest in the cast — not because the character speaks
+   * that way but because one sentence is the entire sample. Quoting it as
+   * evidence would be worse than quoting nothing, because it looks like proof.
+   */
+  minWords?: number;
+}
+
+/** Metrics counted per sentence rather than per word need sentences to exist. */
+const PER_SENTENCE: ReadonlySet<ComparableMetric> = new Set([
+  "questionRate",
+  "exclamationRate",
+  "trailOffRate",
+  "interruptionRate",
+  "meanSentenceLength",
+  "sentenceLengthVariation",
+]);
+
+/**
+ * Ranks a character's passages by how strongly each shows a given metric.
+ *
+ * Returns the extremes at both ends, highest first. A passage that cannot be
+ * measured on this metric — no sentences, or too few words to be honest about
+ * — is left out entirely rather than scored as zero, which would pile silent
+ * passages at the bottom of every ranking.
+ */
+export function findExamples(
+  passages: ReadonlyArray<string>,
+  metric: ComparableMetric,
+  options: ExampleOptions = {},
+): { high: Example[]; low: Example[] } {
+  const count = options.count ?? 2;
+  const minWords = options.minWords ?? 12;
+
+  const scored: Example[] = [];
+
+  passages.forEach((text, index) => {
+    const metrics = computeMetrics([text]);
+    if (metrics.wordCount < minWords) return;
+    if (PER_SENTENCE.has(metric) && metrics.sentenceCount < 1) return;
+
+    const value = metrics[metric];
+    if (typeof value !== "number" || !Number.isFinite(value)) return;
+
+    scored.push({ index, text, value, wordCount: metrics.wordCount });
+  });
+
+  if (scored.length === 0) return { high: [], low: [] };
+
+  const byValue = [...scored].sort((a, b) => b.value - a.value || b.wordCount - a.wordCount);
+
+  /**
+   * With few passages the two ends would overlap and the same line would be
+   * offered as evidence both for and against. Half the list each, at most.
+   */
+  const room = Math.min(count, Math.floor(byValue.length / 2));
+  if (room === 0) return { high: byValue.slice(0, 1), low: [] };
+
+  return {
+    high: byValue.slice(0, room),
+    // Ascending, so the most extreme low sits first and reads like the high list.
+    low: byValue.slice(-room).reverse(),
+  };
+}

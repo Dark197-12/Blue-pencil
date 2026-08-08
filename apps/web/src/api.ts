@@ -254,6 +254,14 @@ export interface QueueItem {
   candidates: Array<{ id: string; name: string; nearbyCount: number; totalLines: number }>;
 }
 
+export interface MetricExample {
+  index: number;
+  text: string;
+  /** This line's own value, not the character's average. */
+  value: number;
+  wordCount: number;
+}
+
 export interface SignatureWord {
   word: string;
   count: number;
@@ -272,6 +280,8 @@ export interface VoiceResponse {
     metrics: Record<string, number | null>;
     z: Record<string, number | undefined>;
     signatureWords: SignatureWord[];
+    /** Per metric, the lines at each end of this character's range. */
+    examples: Record<string, { high: MetricExample[]; low: MetricExample[] } | undefined>;
   }>;
   similarity: Array<{ name: string; against: Array<{ name: string; score: number }> }>;
 }

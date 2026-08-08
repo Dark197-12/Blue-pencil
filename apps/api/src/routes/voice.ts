@@ -1,6 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { buildProfiles, voiceSimilarity, METRIC_LABELS, COMPARABLE_METRICS } from "@bp/analysis";
+import {
+  buildProfiles,
+  findExamples,
+  voiceSimilarity,
+  METRIC_LABELS,
+  COMPARABLE_METRICS,
+  type ComparableMetric,
+} from "@bp/analysis";
 
 import { prisma } from "../db.js";
 import { HttpError, requireAuth } from "../app.js";
@@ -92,6 +99,21 @@ export async function voiceRoutes(app: FastifyInstance) {
           metrics: p.metrics,
           z: p.z,
           signatureWords: p.signatureWords,
+          /**
+           * The lines behind each number the author is likely to question.
+           *
+           * Only the metrics where this character actually stands out get
+           * examples — measuring all fifteen for every character would quote
+           * most of the book to justify differences nobody would notice, and
+           * cost a pass over every passage fifteen times over.
+           */
+          examples: Object.fromEntries(
+            (Object.entries(p.z) as Array<[ComparableMetric, number | undefined]>)
+              .filter(([, z]) => typeof z === "number" && Math.abs(z) >= 1)
+              .sort(([, a], [, b]) => Math.abs(b!) - Math.abs(a!))
+              .slice(0, 5)
+              .map(([metric]) => [metric, findExamples(speech.get(p.name) ?? [], metric)]),
+          ),
         }))
         .sort((a, b) => b.metrics.wordCount - a.metrics.wordCount),
       similarity,
