@@ -136,6 +136,25 @@ export const api = {
       suggestions: Array<{ names: [string, string]; reason: string }>;
     }>(`/api/projects/${id}/dialogue/extract`, { method: "POST" }),
 
+  /**
+   * Re-runs speaker inference over dialogue that is already extracted, keeping
+   * the cast and every hand-corrected line. Unlike extractDialogue, which
+   * starts over, this loses nothing the author has done.
+   */
+  reinferSpeakers: (id: string) =>
+    request<{
+      lineCount: number;
+      changed: number;
+      byMethod: {
+        tag: number;
+        manual: number;
+        alternation: number;
+        closure: number;
+        constraints: number;
+        unattributed: number;
+      };
+    }>(`/api/projects/${id}/dialogue/reinfer`, { method: "POST" }),
+
   getCast: (id: string) => request<Cast>(`/api/projects/${id}/cast`),
 
   renameCharacter: (id: string, characterId: string, name: string) =>
@@ -168,6 +187,7 @@ export const api = {
       total: number;
       tag: number;
       alternation: number;
+      closure: number;
       constraints: number;
       llm: number;
       manual: number;

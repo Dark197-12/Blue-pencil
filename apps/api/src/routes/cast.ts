@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { HttpError, requireAuth } from "../app.js";
 import { extractProjectDialogue } from "../ingest/dialogue.js";
+import { reinferSpeakers } from "../ingest/reinfer.js";
 
 async function ownedProject(userId: string, projectId: string) {
   const project = await prisma.project.findFirst({ where: { id: projectId, userId } });
@@ -30,6 +31,23 @@ export async function castRoutes(app: FastifyInstance) {
       throw new HttpError(400, "Confirm the chapter split first — dialogue is anchored to scenes.");
     }
     return extractProjectDialogue(project.id, project.sourceText);
+  });
+
+  /**
+   * Re-runs speaker inference over dialogue that is already extracted, keeping
+   * the cast and every hand-corrected line.
+   *
+   * This exists because the tiers arrived after some manuscripts did. A book
+   * ingested when only speech tags were implemented would otherwise be stuck at
+   * that coverage forever, or have to be re-extracted at the cost of the
+   * author's own corrections.
+   */
+  app.post<{ Params: { id: string } }>("/:id/dialogue/reinfer", async (request) => {
+    const project = await ownedProject(request.currentUser!.id, request.params.id);
+    if (!project.structureConfirmedAt) {
+      throw new HttpError(400, "Confirm the chapter split first — dialogue is anchored to scenes.");
+    }
+    return reinferSpeakers(project.id, project.sourceText);
   });
 
   app.get<{ Params: { id: string } }>("/:id/cast", async (request) => {

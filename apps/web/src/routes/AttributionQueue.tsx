@@ -35,6 +35,22 @@ export function AttributionQueue({ projectId }: { projectId: string }) {
   const items = useMemo(() => queueQuery.data?.items ?? [], [queueQuery.data]);
   const current = items[cursor];
 
+  /**
+   * Re-runs the automatic tiers. Offered because a manuscript ingested before a
+   * tier existed is otherwise stuck at whatever coverage it had — and the only
+   * alternative, re-extracting, throws away the author's own corrections.
+   */
+  const reinfer = useMutation({
+    mutationFn: () => api.reinferSpeakers(projectId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["attribution-stats", projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["attribution-queue", projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["arcs", projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["flags", projectId] });
+      setCursor(0);
+    },
+  });
+
   const assign = useMutation({
     mutationFn: (v: { lineId: string; characterId: string | null }) =>
       api.assignSpeaker(projectId, v.lineId, v.characterId),
@@ -121,6 +137,7 @@ export function AttributionQueue({ projectId }: { projectId: string }) {
           <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", background: "var(--panel-2)" }}>
             <Bar value={stats.tag} total={stats.total} color="var(--ok)" />
             <Bar value={stats.alternation} total={stats.total} color="var(--accent)" />
+            <Bar value={stats.closure} total={stats.total} color="var(--seq-3)" />
             <Bar value={stats.constraints} total={stats.total} color="var(--pole-hi)" />
             <Bar value={stats.llm} total={stats.total} color="var(--warn)" />
             <Bar value={stats.manual} total={stats.total} color="var(--ink-2)" />
@@ -128,6 +145,9 @@ export function AttributionQueue({ projectId }: { projectId: string }) {
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11.5, color: "var(--muted)" }}>
             <Key color="var(--ok)" label="named in the text" value={stats.tag} />
             <Key color="var(--accent)" label="from the back-and-forth" value={stats.alternation} />
+            {stats.closure > 0 && (
+              <Key color="var(--seq-3)" label="two-person conversation" value={stats.closure} />
+            )}
             {stats.constraints > 0 && (
               <Key color="var(--pole-hi)" label="narrowed down" value={stats.constraints} />
             )}
@@ -135,6 +155,22 @@ export function AttributionQueue({ projectId }: { projectId: string }) {
             <Key color="var(--ink-2)" label="you decided" value={stats.manual} />
             <span style={{ marginLeft: "auto" }}>
               <span className="num" style={{ color: "var(--ink)", fontSize: 13 }}>{percent}%</span> attributed
+            </span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 11.5 }}>
+            <button
+              className="btn"
+              onClick={() => reinfer.mutate()}
+              disabled={reinfer.isPending}
+              style={{ fontSize: 11.5, padding: "4px 10px" }}
+            >
+              {reinfer.isPending ? "Working…" : "Run the automatic tiers again"}
+            </button>
+            <span style={{ color: "var(--muted)" }}>
+              {reinfer.data
+                ? `Changed ${reinfer.data.changed.toLocaleString()} lines. Your own answers were kept.`
+                : "Keeps your corrections and the cast — only the guesses are redone."}
             </span>
           </div>
         </div>

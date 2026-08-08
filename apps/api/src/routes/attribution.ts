@@ -203,6 +203,7 @@ export async function attributionRoutes(app: FastifyInstance) {
       total,
       tag: countFor("tag"),
       alternation: countFor("alternation"),
+      closure: countFor("closure"),
       constraints: countFor("constraints"),
       llm: countFor("llm"),
       manual: countFor("manual"),

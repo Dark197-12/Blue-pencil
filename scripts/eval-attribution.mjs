@@ -23,6 +23,8 @@
 import { readFileSync } from "node:fs";
 import {
   buildCast,
+  closeTwoHanders,
+  detectScenes,
   extractDialogue,
   inferByAlternation,
   inferGenders,
@@ -32,6 +34,8 @@ import {
 } from "../packages/analysis/dist/index.js";
 
 const TAG_RATE = Number(process.argv[2] ?? 0.2);
+/** Anchors each speaker needs before a scene counts as a two-hander. */
+const MIN_ANCHORS = Number(process.argv[3] ?? 2);
 
 // ---------------------------------------------------------------- corpus ----
 
@@ -118,6 +122,14 @@ function synthesise(speeches, tagRate) {
       const b = (i / 8) % beats.length;
       parts.push(`${beats[b]} ${beats[(b + 1) % beats.length]}`);
     }
+
+    /**
+     * A scene break every 24 speeches. The cadence is fixed and takes no
+     * account of who is speaking — deciding where scenes end by looking at the
+     * speaker list would leak the answer into the test and hand the closure
+     * tier exactly the two-hander scenes it wants.
+     */
+    if (i > 0 && i % 24 === 0) parts.push("* * *");
   });
 
   return { text: `Chapter 1\n\n${parts.join("\n\n")}\n`, truth };
@@ -138,9 +150,17 @@ function run(text) {
     gender: genders.get(m.name)?.gender ?? null,
   }));
 
+  // Scene ranges, so the closure tier can ask who speaks in a whole scene.
+  const scenes = detectScenes(text, 0, text.length);
+  const sceneOf = (offset) => {
+    const found = scenes.findIndex((s) => offset >= s.start && offset < s.end);
+    return found === -1 ? null : `s${found}`;
+  };
+
   const anchored = lines.map((line) => ({
     line,
     speaker: line.tag?.kind === "name" ? (alias.get(line.tag.raw) ?? null) : null,
+    sceneId: sceneOf(line.start),
   }));
 
   const method = anchored.map((a) => (a.speaker ? "tag" : null));
@@ -153,6 +173,18 @@ function run(text) {
       detail.set(r.index, { confidence: r.confidence, reasons: [`alternation`] });
     }
   }
+  /**
+   * Tier 2.2 runs after alternation, so it only sees what alternation could not
+   * reach, and its measured accuracy is for that harder remainder rather than
+   * for the easy lines tier 2 already took.
+   */
+  for (const r of closeTwoHanders(anchored, { minAnchorsPerSpeaker: MIN_ANCHORS })) {
+    if (!anchored[r.index].speaker) {
+      anchored[r.index].speaker = r.speaker;
+      method[r.index] = "closure";
+      detail.set(r.index, { confidence: r.confidence, reasons: ["closure"] });
+    }
+  }
   for (const r of resolveByConstraints(anchored, castInfo)) {
     if (!anchored[r.index].speaker) {
       anchored[r.index].speaker = r.speaker;
@@ -161,7 +193,7 @@ function run(text) {
     }
   }
 
-  return { lines, anchored, method, cast, detail };
+  return { lines, anchored, method, cast, detail, sceneCount: scenes.length };
 }
 
 // ---------------------------------------------------------------- report ----
@@ -169,7 +201,7 @@ function run(text) {
 const raw = normalizeText(stripGutenbergBoilerplate(readFileSync("fixtures/importance-of-being-earnest.txt", "utf8")));
 const speeches = parsePlay(raw);
 const { text, truth } = synthesise(speeches, TAG_RATE);
-const { lines, anchored, method, detail } = run(text);
+const { lines, anchored, method, detail, sceneCount } = run(text);
 
 console.log(`corpus: ${speeches.length} labelled speeches -> ${lines.length} extracted lines`);
 console.log(`tag rate: ${(TAG_RATE * 100).toFixed(0)}%  (a novel is around 19%)\n`);

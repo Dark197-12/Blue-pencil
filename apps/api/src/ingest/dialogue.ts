@@ -1,5 +1,6 @@
 import {
   buildCast,
+  closeTwoHanders,
   extractDialogue,
   inferByAlternation,
   inferGenders,
@@ -98,6 +99,7 @@ export async function extractProjectDialogue(projectId: string, sourceText: stri
       const anchored = lines.map((line) => ({
         line,
         speaker: line.tag?.kind === "name" ? (nameOf.get(line.tag.raw) ?? null) : null,
+        sceneId: sceneFor(line.start),
       }));
 
       const inferred = new Map<number, { characterId: string; confidence: number; method: string }>();
@@ -111,6 +113,23 @@ export async function extractProjectDialogue(projectId: string, sourceText: stri
           method: "alternation",
         });
         // Constraints run after, and read the speakers alternation just found.
+        anchored[result.index]!.speaker = result.speaker;
+      }
+
+      /**
+       * Tier 2.2 takes identity from the scene and parity from the exchange,
+       * which reaches the case tier 2 must refuse: an exchange naming only one
+       * speaker. Measured at 79% — inference-grade, so its lines establish who
+       * was in the room without ever being measured as somebody's voice.
+       */
+      for (const result of closeTwoHanders(anchored)) {
+        const id = idOfName.get(result.speaker);
+        if (!id || inferred.has(result.index)) continue;
+        inferred.set(result.index, {
+          characterId: id,
+          confidence: result.confidence,
+          method: "closure",
+        });
         anchored[result.index]!.speaker = result.speaker;
       }
 
@@ -192,13 +211,19 @@ export async function extractProjectDialogue(projectId: string, sourceText: stri
 
   const fromTags = countFor("tag");
   const fromAlternation = countFor("alternation");
+  const fromClosure = countFor("closure");
   const fromConstraints = countFor("constraints");
 
   return {
     lineCount: lines.length,
     characterCount: cast.members.length,
-    attributedCount: fromTags + fromAlternation + fromConstraints,
-    byMethod: { tag: fromTags, alternation: fromAlternation, constraints: fromConstraints },
+    attributedCount: fromTags + fromAlternation + fromClosure + fromConstraints,
+    byMethod: {
+      tag: fromTags,
+      alternation: fromAlternation,
+      closure: fromClosure,
+      constraints: fromConstraints,
+    },
     /** Tagged with a name that did not survive into the cast. */
     unresolvedNameTags: namedTags - fromTags,
     suggestions: cast.suggestions,

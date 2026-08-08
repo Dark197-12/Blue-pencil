@@ -137,3 +137,10 @@ export {
   type ContextEvidence,
   type ContextOptions,
 } from "./context.js";
+
+export {
+  closeTwoHanders,
+  CLOSURE_ACCURACY,
+  type SceneAnchored,
+  type ClosureOptions,
+} from "./closure.js";
