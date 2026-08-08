@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { DialogueLine } from "./dialogue.js";
-import { findExchanges, inferByAlternation, type Anchored } from "./alternation.js";
+import {
+  ALTERNATION_ACCURACY,
+  findExchanges,
+  inferByAlternation,
+  type Anchored,
+} from "./alternation.js";
 
 /** Builds a line at a given offset; `gap` is the narration before it. */
 function build(specs: Array<{ speaker: string | null; gap?: number }>): Anchored[] {
@@ -76,8 +81,6 @@ describe("inferByAlternation", () => {
     const results = inferByAlternation(lines);
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({ index: 3, speaker: "Elena" });
-    // Lower confidence than a clean parity run.
-    expect(results[0]!.confidence).toBeLessThan(0.7);
   });
 
   it("refuses a line whose two neighbours name different people", () => {
@@ -123,8 +126,11 @@ describe("inferByAlternation", () => {
     expect(inferByAlternation(lines)).toEqual([]);
   });
 
-  it("lowers confidence the further it carries the parity", () => {
-    // Anchors at both ends: Elena on even, Marcus on odd.
+  it("reports the method's measured accuracy, not a per-line score", () => {
+    // Every answer carries the same number, because that number is how often
+    // this method is right overall. Scoring lines individually by distance from
+    // the nearest named line produced a figure that ran backwards when checked
+    // against known answers — see scripts/eval-attribution.mjs.
     const lines = build([
       { speaker: "Elena" },
       { speaker: null },
@@ -135,10 +141,7 @@ describe("inferByAlternation", () => {
     ]);
     const results = inferByAlternation(lines);
     expect(results).toHaveLength(4);
-    const adjacent = results[0]!.confidence;
-    const distant = results[Math.floor(results.length / 2)]!.confidence;
-    expect(distant).toBeLessThan(adjacent);
-    expect(Math.min(...results.map((r) => r.confidence))).toBeGreaterThanOrEqual(0.45);
+    expect(new Set(results.map((r) => r.confidence))).toEqual(new Set([ALTERNATION_ACCURACY]));
   });
 
   it("assigns the alternating speaker across a full exchange", () => {

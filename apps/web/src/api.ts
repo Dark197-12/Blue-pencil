@@ -168,6 +168,7 @@ export const api = {
       total: number;
       tag: number;
       alternation: number;
+      constraints: number;
       llm: number;
       manual: number;
       unattributed: number;

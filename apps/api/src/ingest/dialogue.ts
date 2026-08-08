@@ -1,4 +1,11 @@
-import { buildCast, extractDialogue, inferByAlternation, type DialogueLine } from "@bp/analysis";
+import {
+  buildCast,
+  extractDialogue,
+  inferByAlternation,
+  inferGenders,
+  resolveByConstraints,
+  type DialogueLine,
+} from "@bp/analysis";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../db.js";
 
@@ -93,10 +100,41 @@ export async function extractProjectDialogue(projectId: string, sourceText: stri
         speaker: line.tag?.kind === "name" ? (nameOf.get(line.tag.raw) ?? null) : null,
       }));
 
-      const inferred = new Map<number, { characterId: string; confidence: number }>();
+      const inferred = new Map<number, { characterId: string; confidence: number; method: string }>();
+
       for (const result of inferByAlternation(anchored)) {
         const id = idOfName.get(result.speaker);
-        if (id) inferred.set(result.index, { characterId: id, confidence: result.confidence });
+        if (!id) continue;
+        inferred.set(result.index, {
+          characterId: id,
+          confidence: result.confidence,
+          method: "alternation",
+        });
+        // Constraints run after, and read the speakers alternation just found.
+        anchored[result.index]!.speaker = result.speaker;
+      }
+
+      /**
+       * Tier 2.5 eliminates candidates using gender, who the line addresses,
+       * and who just spoke. It needs alternation's answers in place first,
+       * because its whole notion of who is present comes from lines whose
+       * speaker is already known.
+       */
+      const genders = inferGenders(sourceText, cast.members);
+      const castInfo = cast.members.map((member) => ({
+        name: member.name,
+        aliases: member.aliases,
+        gender: genders.get(member.name)?.gender ?? null,
+      }));
+
+      for (const result of resolveByConstraints(anchored, castInfo)) {
+        const id = idOfName.get(result.speaker);
+        if (!id || inferred.has(result.index)) continue;
+        inferred.set(result.index, {
+          characterId: id,
+          confidence: result.confidence,
+          method: "constraints",
+        });
       }
 
       const rows = lines.map((line: DialogueLine, index: number) => {
@@ -116,10 +154,17 @@ export async function extractProjectDialogue(projectId: string, sourceText: stri
           speakerRaw: line.tag?.raw ?? null,
           speakerKind: line.tag?.kind ?? null,
           characterId,
-          // A speech tag naming someone is near-certain; alternation is an
-          // inference and carries its own, lower, confidence.
-          method: tagged ? "tag" : guess ? "alternation" : null,
-          confidence: tagged ? 0.95 : (guess?.confidence ?? null),
+          /**
+           * `confidence` is how often the *method* is right, measured against
+           * known answers by scripts/eval-attribution.mjs — not a per-line
+           * score. Speech tags were 176 of 176; alternation 258 of 343;
+           * constraints 57 of 73. Phase 5 should build voice baselines from
+           * tags and manual answers only, because a quarter of the inferred
+           * lines belong to the other person in the conversation, which is
+           * exactly the character a baseline most needs to be kept apart from.
+           */
+          method: tagged ? "tag" : (guess?.method ?? null),
+          confidence: tagged ? 1 : (guess?.confidence ?? null),
         };
       });
 
@@ -147,12 +192,13 @@ export async function extractProjectDialogue(projectId: string, sourceText: stri
 
   const fromTags = countFor("tag");
   const fromAlternation = countFor("alternation");
+  const fromConstraints = countFor("constraints");
 
   return {
     lineCount: lines.length,
     characterCount: cast.members.length,
-    attributedCount: fromTags + fromAlternation,
-    byMethod: { tag: fromTags, alternation: fromAlternation },
+    attributedCount: fromTags + fromAlternation + fromConstraints,
+    byMethod: { tag: fromTags, alternation: fromAlternation, constraints: fromConstraints },
     /** Tagged with a name that did not survive into the cast. */
     unresolvedNameTags: namedTags - fromTags,
     suggestions: cast.suggestions,

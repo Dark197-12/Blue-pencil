@@ -1,4 +1,21 @@
 export {
+  resolveByConstraints,
+  namesMentioned,
+  type CastInfo,
+  type ConstraintInput,
+  type ConstraintResult,
+  type ConstraintOptions,
+} from "./constraints.js";
+
+export {
+  inferGenders,
+  genderOfPronoun,
+  type Gender,
+  type GenderEvidence,
+  type InferGenderOptions,
+} from "./gender.js";
+
+export {
   inferByAlternation,
   findExchanges,
   type Anchored,

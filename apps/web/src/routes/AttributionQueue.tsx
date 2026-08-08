@@ -121,13 +121,17 @@ export function AttributionQueue({ projectId }: { projectId: string }) {
           <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", background: "var(--panel-2)" }}>
             <Bar value={stats.tag} total={stats.total} color="var(--ok)" />
             <Bar value={stats.alternation} total={stats.total} color="var(--accent)" />
-            <Bar value={stats.llm} total={stats.total} color="var(--pole-hi)" />
+            <Bar value={stats.constraints} total={stats.total} color="var(--pole-hi)" />
+            <Bar value={stats.llm} total={stats.total} color="var(--warn)" />
             <Bar value={stats.manual} total={stats.total} color="var(--ink-2)" />
           </div>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11.5, color: "var(--muted)" }}>
             <Key color="var(--ok)" label="named in the text" value={stats.tag} />
             <Key color="var(--accent)" label="from the back-and-forth" value={stats.alternation} />
-            {stats.llm > 0 && <Key color="var(--pole-hi)" label="worked out by Claude" value={stats.llm} />}
+            {stats.constraints > 0 && (
+              <Key color="var(--pole-hi)" label="narrowed down" value={stats.constraints} />
+            )}
+            {stats.llm > 0 && <Key color="var(--warn)" label="worked out by Claude" value={stats.llm} />}
             <Key color="var(--ink-2)" label="you decided" value={stats.manual} />
             <span style={{ marginLeft: "auto" }}>
               <span className="num" style={{ color: "var(--ink)", fontSize: 13 }}>{percent}%</span> attributed

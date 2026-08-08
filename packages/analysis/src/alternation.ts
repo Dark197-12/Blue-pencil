@@ -43,6 +43,20 @@ export interface AlternationResult {
   confidence: number;
 }
 
+/**
+ * How often this method is right, measured against known answers by
+ * `scripts/eval-attribution.mjs`: 258 correct of 343 on a corpus synthesised
+ * from a labelled play at a novel-like tag density.
+ *
+ * It is a property of the *method*, not of the individual line. An earlier
+ * version scored each line separately — higher when it sat close to a named
+ * line, lower when the parity had been carried further — and the eval showed
+ * that score was not merely useless but inverted: the 0.72 band scored 71%
+ * while the 0.68 band scored 80%. Invented precision is worse than none,
+ * because everything downstream believes it.
+ */
+export const ALTERNATION_ACCURACY = 0.75;
+
 export interface AlternationOptions {
   /**
    * Characters of narration allowed between two lines of the same exchange.
@@ -50,8 +64,6 @@ export interface AlternationOptions {
    * conversation to have moved on.
    */
   maxGap?: number;
-  /** Confidence for a line adjacent to an anchor, decaying with distance. */
-  baseConfidence?: number;
 }
 
 /** Splits lines into runs of back-and-forth separated by narration. */
@@ -79,7 +91,6 @@ export function inferByAlternation(
   options: AlternationOptions = {},
 ): AlternationResult[] {
   const maxGap = options.maxGap ?? 300;
-  const baseConfidence = options.baseConfidence ?? 0.72;
   const results: AlternationResult[] = [];
 
   for (const exchange of findExchanges(lines, maxGap)) {
@@ -107,14 +118,10 @@ export function inferByAlternation(
       for (let i = 0; i < slice.length; i++) {
         if (slice[i]!.speaker !== null) continue;
 
-        const distance = Math.min(...anchors.map((a) => Math.abs(a.i - i)));
         results.push({
           index: exchange.start + i,
           speaker: i % 2 === 0 ? evenSpeaker : other(evenSpeaker),
-          // Confidence decays with distance from the nearest named line: the
-          // further the parity has been carried, the more chance a missed
-          // interjection has thrown it off.
-          confidence: Math.max(0.45, baseConfidence - 0.04 * (distance - 1)),
+          confidence: ALTERNATION_ACCURACY,
         });
       }
       continue;
@@ -144,9 +151,7 @@ export function inferByAlternation(
       results.push({
         index: exchange.start + i,
         speaker: other(neighbour),
-        // Both neighbours naming the same person is the stronger case: someone
-        // else spoke between two of their lines.
-        confidence: previous && next ? 0.6 : 0.55,
+        confidence: ALTERNATION_ACCURACY,
       });
     }
   }
