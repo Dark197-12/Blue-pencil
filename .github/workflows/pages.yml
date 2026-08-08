@@ -32,9 +32,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No version input: package.json already declares packageManager, and
+      # this action refuses to run when the version is specified twice. Reading
+      # it from there also means CI uses the exact pnpm the repository pins.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v4
         with:
