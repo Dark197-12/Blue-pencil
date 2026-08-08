@@ -1,0 +1,50 @@
+# Fly.io deployment for Blue Pencil.
+#
+# One machine serving both the API and the built browser app. Rename `app`
+# before the first deploy — Fly app names are globally unique.
+
+app = "blue-pencil"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+# Migrations run once per deploy, before any new machine takes traffic, and a
+# failure here aborts the release rather than leaving the app running against a
+# schema it does not expect. Deliberately `migrate deploy`, which only applies
+# existing migrations — it can never invent one or prompt.
+[deploy]
+  release_command = "pnpm --filter @bp/api exec prisma migrate deploy"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+  # The browser app is served from this same origin, so it calls relative
+  # paths and CORS never comes into play. Set to the real hostname anyway:
+  # it is what the CORS allowlist compares against if a second origin is ever
+  # added.
+  WEB_ORIGIN = "https://blue-pencil.fly.dev"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Scale to zero when idle. A cold start is a second or two — an acceptable
+  # trade for a portfolio deployment that is mostly asleep.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  # Analysis is CPU-bound and single-threaded; a whole novel's metrics fit in
+  # well under 512 MB, but parsing a 25 MB epub does not leave much headroom
+  # below it.
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

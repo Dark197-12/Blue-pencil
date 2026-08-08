@@ -3,6 +3,10 @@ import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
+import fastifyStatic from "@fastify/static";
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { ZodError } from "zod";
 
 import { env, isProduction } from "./env.js";
@@ -176,7 +180,43 @@ export async function buildApp(): Promise<FastifyInstance> {
     return reply.status(500).send({ error: { message: "Something went wrong on our side." } });
   });
 
+  /**
+   * In production the built browser app is served from this same server.
+   *
+   * One origin rather than two. The session cookie then needs no `SameSite=None`
+   * — which Safari and Brave restrict — CORS stops mattering, and the whole
+   * thing is one deployable instead of two that must be kept in step.
+   *
+   * Skipped when the build is absent, which is the normal state in development:
+   * Vite serves the app on its own port with hot reload, and this server should
+   * not shadow it with a stale bundle.
+   */
+  const webDist = env.WEB_DIST ?? resolve(dirname(fileURLToPath(import.meta.url)), "../../web/dist");
+  const hasBuiltApp = existsSync(join(webDist, "index.html"));
+
+  if (hasBuiltApp) {
+    await app.register(fastifyStatic, { root: webDist, wildcard: false });
+  }
+
   app.setNotFoundHandler((request, reply) => {
+    /**
+     * Client-side routes are real URLs to the browser and unknown paths to the
+     * server, so anything that is not an API call falls back to the app shell
+     * and lets the router decide. `/api/*` keeps answering JSON: returning HTML
+     * to a fetch that expected JSON turns a clear 404 into a parse error three
+     * layers away.
+     */
+    const path = request.url.split("?")[0] ?? "";
+    // A path with a file extension was asking for a file, not a page. Falling
+    // back for those would answer a missing script with 200 and a page of
+    // HTML, which reaches the browser as "Unexpected token '<'" — a parse
+    // error pointing at the bundle instead of a 404 pointing at the deploy.
+    const wantsFile = /\.[a-z0-9]+$/i.test(path);
+
+    if (hasBuiltApp && request.method === "GET" && !path.startsWith("/api/") && !wantsFile) {
+      return reply.type("text/html").sendFile("index.html");
+    }
+
     reply.status(404).send({ error: { message: `No route for ${request.method} ${request.url}.` } });
   });
 

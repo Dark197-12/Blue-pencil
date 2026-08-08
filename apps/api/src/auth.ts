@@ -48,11 +48,22 @@ export async function purgeExpiredSessions() {
   return count;
 }
 
+/**
+ * `sameSite: "lax"` in every environment, because the browser app and the API
+ * are served from one origin.
+ *
+ * An earlier version sent `SameSite=None` in production, which is what a split
+ * deployment would need — and which Safari and Brave increasingly refuse,
+ * producing sign-outs that only reproduce on someone else's machine. Serving
+ * the built app from this same server removes the need entirely. Ports do not
+ * affect SameSite, so the development setup on :5173 and :3001 is same-site
+ * too and behaves identically.
+ */
 export const sessionCookieOptions = (secure: boolean) =>
   ({
     path: "/",
     httpOnly: true,
-    sameSite: secure ? ("none" as const) : ("lax" as const),
+    sameSite: "lax" as const,
     secure,
     signed: true,
     maxAge: SESSION_TTL_MS / 1000,

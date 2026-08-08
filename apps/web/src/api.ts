@@ -11,7 +11,19 @@ import type {
   User,
 } from "@bp/schema";
 
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+/**
+ * Where the API lives.
+ *
+ * Empty in production, because the built app is served by the API itself and
+ * relative paths reach it on the same origin — which is what keeps the session
+ * cookie a plain `SameSite=Lax` one rather than the `None` that Safari and
+ * Brave restrict. In development Vite serves this app on its own port, so the
+ * API has to be named outright.
+ *
+ * `??` rather than `||`: an explicitly empty `VITE_API_URL` means same-origin
+ * and must not fall back to localhost.
+ */
+const BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? "" : "http://localhost:3001");
 
 /**
  * Thrown for any non-2xx response. `fields` is present when the server rejected

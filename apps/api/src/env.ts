@@ -18,6 +18,12 @@ const envSchema = z.object({
     .min(32, "SESSION_SECRET must be at least 32 characters. Generate one with:\n  node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""),
   WEB_ORIGIN: z.string().url().default("http://localhost:5173"),
   ANTHROPIC_API_KEY: z.string().optional(),
+  /**
+   * Where the built browser app lives. Optional: the default is derived from
+   * the repository layout, and an absent build simply means static serving is
+   * skipped, which is what development wants.
+   */
+  WEB_DIST: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

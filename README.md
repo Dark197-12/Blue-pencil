@@ -189,6 +189,47 @@ The API route tests need Postgres too. They create and migrate their own
 `bluepencil_test` database on first run, truncate it between tests, and refuse to
 start against a database whose name does not end in `_test`.
 
+## Deploying
+
+One service: Fastify serves the built browser app alongside the API, so both sit
+on the same origin. That keeps the session cookie a plain `SameSite=Lax` one —
+a split deployment would need `SameSite=None`, which Safari and Brave restrict,
+producing sign-outs that only reproduce on someone else's machine — and it means
+CORS never applies and there is one deployable rather than two kept in step.
+
+Postgres lives on [Neon](https://neon.tech) rather than on the host, so the
+database survives redeploys and the connection string works unchanged from a
+laptop.
+
+```bash
+# 1. A database. Create a project at neon.tech and copy the connection string.
+
+# 2. An app. Pick your own name — Fly app names are globally unique.
+fly launch --no-deploy --name your-app-name
+
+# 3. Secrets. Never in fly.toml, which is committed.
+fly secrets set DATABASE_URL="postgresql://...?sslmode=require"
+fly secrets set SESSION_SECRET="$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")"
+
+# 4. Point WEB_ORIGIN in fly.toml at your real hostname, then:
+fly deploy
+```
+
+Migrations run as a Fly release command, once per deploy and before any new
+machine takes traffic, so a failed migration aborts the release instead of
+leaving the app serving against a schema it does not expect. It runs
+`prisma migrate deploy`, which only applies existing migrations and can never
+invent or prompt for one.
+
+To put the worked example on the deployed instance:
+
+```bash
+fly ssh console -C "pnpm --filter @bp/api seed"
+```
+
+The machine scales to zero when idle, so the first request after a quiet spell
+takes a second or two to wake.
+
 ## Test fixtures
 
 | File                              | Role                                                         |

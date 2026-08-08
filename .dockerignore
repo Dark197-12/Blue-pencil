@@ -1,0 +1,28 @@
+# Everything here is either rebuilt inside the image, secret, or irrelevant to
+# it. Keeping the build context small also keeps the layer cache useful.
+
+node_modules
+**/node_modules
+
+# Rebuilt during the image build. Copying a host build in would risk shipping
+# something compiled against a different Node or a stale schema.
+dist
+**/dist
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Secrets never belong in an image. Fly injects the real values as env vars.
+.env
+**/.env
+!**/.env.example
+
+.git
+.github
+.vscode
+.idea
+
+# Local Prisma artefacts; the client is regenerated in the image.
+**/.prisma
+
+npm-debug.log*
+pnpm-debug.log*
