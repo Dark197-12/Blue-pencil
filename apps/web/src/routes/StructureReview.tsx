@@ -4,7 +4,7 @@ import type { Chapter } from "@bp/schema";
 import { api, RequestError } from "../api";
 
 /** Trims to a word boundary — "of ascer…" reads as a bug, not an excerpt. */
-function head(text: string, limit: number): string {
+export function head(text: string, limit: number): string {
   if (text.length <= limit) return text;
   const cut = text.slice(0, limit);
   const lastSpace = cut.lastIndexOf(" ");
@@ -12,7 +12,7 @@ function head(text: string, limit: number): string {
 }
 
 /** The same, taken from the end, so the excerpt starts on a whole word. */
-function tail(text: string, limit: number): string {
+export function tail(text: string, limit: number): string {
   if (text.length <= limit) return text;
   const cut = text.slice(-limit);
   const firstSpace = cut.indexOf(" ");

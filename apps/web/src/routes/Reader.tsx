@@ -32,7 +32,7 @@ function MarginMark({ flags }: { flags: VoiceFlag[] }) {
  * one is known. Offsets are absolute into the manuscript, so a span is sliced
  * relative to the paragraph it falls in.
  */
-function renderWithSpeakers(paragraph: Paragraph, dialogue: DialogueLine[]): ReactNode {
+export function renderWithSpeakers(paragraph: Paragraph, dialogue: DialogueLine[]): ReactNode {
   const spans = dialogue
     .flatMap((line) =>
       line.segments.map((segment) => ({

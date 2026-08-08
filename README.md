@@ -185,7 +185,7 @@ TypeScript throughout, pnpm workspace.
 | `packages/analysis` | Pure functions — structure, dialogue, metrics, baselines, flags, arcs. No I/O, 265 tests. |
 | `packages/schema`   | Zod contracts shared by the API and the web app.                      |
 | `apps/api`          | Fastify 5 + Prisma 6 + Postgres. Session auth, rate limiting. 41 route tests against a real database. |
-| `apps/web`          | Vite 6 + React + TanStack Query.                                      |
+| `apps/web`          | Vite 6 + React + TanStack Query. 42 tests over the offset arithmetic, demo client and keyboard queue. |
 | `fixtures/`         | Public-domain Gutenberg texts, committed so tests run offline.         |
 
 Passwords use Node's built-in `scrypt`, avoiding a native build step. Sessions are
@@ -220,7 +220,7 @@ pnpm dev                     # api on :3001, web on :5173
 Other commands:
 
 ```bash
-pnpm test                              # 306 tests
+pnpm test                              # 357 tests
 pnpm typecheck
 pnpm build
 pnpm db:studio                         # browse the database

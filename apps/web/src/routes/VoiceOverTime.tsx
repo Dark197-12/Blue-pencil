@@ -1,5 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, type Arc, type ArcsResponse, type ContextShift } from "../api";
+import {
+  SPARKLINE_HEIGHT,
+  SPARKLINE_WIDTH,
+  sparklinePath,
+  sparklinePoints,
+} from "./sparkline";
 
 /**
  * How a voice moves: across the book, and across the people it speaks to.
@@ -240,30 +246,13 @@ function ArcCard({ arc }: { arc: Arc }) {
  * revisions. The dots are the scenes; the line between them is the claim.
  */
 function Sparkline({ points, rising }: { points: Arc["points"]; rising: boolean }) {
-  const width = 100;
-  const height = 34;
-  const values = points.map((p) => p.value);
-  const low = Math.min(...values);
-  const high = Math.max(...values);
-  const span = high - low || 1;
-
-  const at = (i: number, value: number) => ({
-    x: points.length === 1 ? width / 2 : (i / (points.length - 1)) * width,
-    y: height - ((value - low) / span) * height,
-  });
-
-  const path = points
-    .map((p, i) => {
-      const { x, y } = at(i, p.value);
-      return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(" ");
-
+  const plotted = sparklinePoints(points.map((p) => p.value));
+  const path = sparklinePath(plotted);
   const colour = rising ? "var(--pole-hi)" : "var(--pole-lo)";
 
   return (
     <svg
-      viewBox={`-3 -3 ${width + 6} ${height + 6}`}
+      viewBox={`-3 -3 ${SPARKLINE_WIDTH + 6} ${SPARKLINE_HEIGHT + 6}`}
       preserveAspectRatio="none"
       role="img"
       aria-label={`${points.length} scenes, ${rising ? "rising" : "falling"}`}
@@ -271,7 +260,7 @@ function Sparkline({ points, rising }: { points: Arc["points"]; rising: boolean 
     >
       <path d={path} fill="none" stroke={colour} strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
       {points.map((p, i) => {
-        const { x, y } = at(i, p.value);
+        const { x, y } = plotted[i]!;
         return (
           <circle
             key={p.sceneId}
