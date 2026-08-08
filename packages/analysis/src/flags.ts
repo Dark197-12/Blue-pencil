@@ -75,7 +75,7 @@ export interface FlagOptions {
  * words for sentence length, counts per 100 words or per 100 sentences for the
  * rates, grades for reading level.
  */
-const MINIMUM_EFFECT: Record<ComparableMetric, number> = {
+export const MINIMUM_EFFECT: Record<ComparableMetric, number> = {
   meanSentenceLength: 5,
   sentenceLengthVariation: 5,
   contractionRate: 2,

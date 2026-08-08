@@ -214,6 +214,10 @@ export const api = {
       settings: { flagThreshold: number; ignoredMetrics: string[] };
       flagCount: number;
     }>(`/api/projects/${id}/flags/settings`, { method: "PATCH", body: JSON.stringify(settings) }),
+
+  // ------------------------------------------------------- arcs & context --
+
+  getArcs: (id: string) => request<ArcsResponse>(`/api/projects/${id}/arcs`),
 };
 
 export interface QueueItem {
@@ -290,4 +294,73 @@ export interface FlagsResponse {
   metricKeys: string[];
   dismissedCount: number;
   flags: VoiceFlag[];
+}
+
+export interface ArcPoint {
+  sceneId: string;
+  chapterIndex: number;
+  sceneIndex: number;
+  wordCount: number;
+  value: number;
+}
+
+export interface Arc {
+  characterId: string;
+  name: string;
+  metric: string;
+  label: string;
+  direction: "rising" | "falling";
+  /** Spearman's rho: how consistently the metric moves one way. */
+  rho: number;
+  startLevel: number;
+  endLevel: number;
+  change: number;
+  sceneCount: number;
+  wordCount: number;
+  points: ArcPoint[];
+  summary: string;
+}
+
+export interface ContextShift {
+  speakerId: string;
+  speakerName: string;
+  addresseeId: string;
+  addresseeName: string;
+  peakZ: number;
+  evidence: Array<{
+    metric: string;
+    label: string;
+    /** How they speak to everyone else. */
+    elsewhere: number;
+    observed: number;
+    z: number;
+    direction: "higher" | "lower";
+  }>;
+  wordCount: number;
+  elsewhereWordCount: number;
+  summary: string;
+}
+
+export interface ArcsResponse {
+  coverage: {
+    linesTotal: number;
+    linesMeasurable: number;
+    linesAddressed: number;
+    arcEligible: number;
+    relationships: number;
+    scenesWithDialogue: number;
+    scenesFullyAttributed: number;
+  };
+  characters: Array<{ id: string; name: string; sceneCount: number; isArcEligible: boolean }>;
+  arcs: Arc[];
+  relationships: Array<{
+    speakerId: string;
+    speakerName: string;
+    addresseeId: string;
+    addresseeName: string;
+    wordCount: number;
+    lineCount: number;
+    sceneCount: number;
+  }>;
+  shifts: ContextShift[];
 }

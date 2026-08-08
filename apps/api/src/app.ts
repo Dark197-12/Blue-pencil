@@ -13,6 +13,7 @@ import { castRoutes } from "./routes/cast.js";
 import { attributionRoutes } from "./routes/attribution.js";
 import { voiceRoutes } from "./routes/voice.js";
 import { flagRoutes } from "./routes/flags.js";
+import { arcRoutes } from "./routes/arcs.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -116,6 +117,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(attributionRoutes, { prefix: "/api/projects" });
   await app.register(voiceRoutes, { prefix: "/api/projects" });
   await app.register(flagRoutes, { prefix: "/api/projects" });
+  await app.register(arcRoutes, { prefix: "/api/projects" });
 
   return app;
 }

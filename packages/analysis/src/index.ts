@@ -12,6 +12,7 @@ export {
 
 export {
   findFlags,
+  MINIMUM_EFFECT,
   type Flag,
   type FlagEvidence,
   type FlagOptions,
@@ -115,3 +116,24 @@ export {
   type Region,
   type DetectOptions,
 } from "./structure.js";
+
+export {
+  findArcs,
+  spearman,
+  type Arc,
+  type ArcPoint,
+  type ArcOptions,
+} from "./arc.js";
+
+export {
+  inferAddressees,
+  measureContexts,
+  findContextShifts,
+  type ContextLine,
+  type AddressedLine,
+  type AddresseeBasis,
+  type ContextMeasurement,
+  type ContextShift,
+  type ContextEvidence,
+  type ContextOptions,
+} from "./context.js";
